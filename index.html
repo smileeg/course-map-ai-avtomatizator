@@ -294,6 +294,27 @@ body {
 .status-select:focus { outline: none; box-shadow: 0 0 0 2px rgba(26,26,24,.12); }
 .status-select.saving { opacity: .5; pointer-events: none; }
 
+.material-type-select {
+  font-size: 10px;
+  font-family: 'DM Mono', monospace;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  padding: 2px 18px 2px 7px;
+  background: #fff;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.material-type-select:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(26,26,24,.10);
+}
+
+.material-type-select.saving {
+  opacity: .5;
+  pointer-events: none;
+}
+   
 .status-dot {
   width: 11px;
   height: 11px;
@@ -1097,6 +1118,15 @@ function buildStatusDotHTML(status) {
   const sc = STATUS_CLASS[current] || "p-review";
   return `<span class="status-dot ${sc}" title="${escHtml(current)}"></span>`;
 }
+
+function buildMaterialTypeSelectHTML(id, type) {
+  const current = type || "PDF";
+  const options = ["PDF", "xlsx", "docx", "інше"];
+
+  return `<select class="material-type-select" data-id="${id}" onchange="updateMaterialType(this)">
+    ${options.map(opt => `<option value="${opt}" ${opt === current ? "selected" : ""}>${opt}</option>`).join("")}
+  </select>`;
+}
    
 // HTML рядка матеріалу
 function buildMaterialHTML(m) {
@@ -1135,9 +1165,7 @@ function buildMaterialHTML(m) {
 
       <div class="meta-block">
         <span class="meta-label">Тип:</span>
-        <span class="meta-text"
-              onclick="editText(this, '${m.id}', 'materials', 'type')"
-              title="Клікни для редагування типу">${escHtml(m.type || "— не вказано")}</span>
+        ${buildMaterialTypeSelectHTML(m.id, m.type)}
       </div>
 
       ${m.note
@@ -1388,6 +1416,38 @@ async function updateStatus(el) {
   }
 }
 
+async function updateMaterialType(el) {
+  const id = el.dataset.id;
+  const next = el.value || "PDF";
+
+  const record = findRecord("materials", id);
+  const cur = record?.type || "PDF";
+
+  if (cur === next) return;
+
+  el.classList.add("saving");
+
+  if (record) record.type = next;
+
+  const res = await api("PATCH", "/update", {
+    pageId: id,
+    table: "materials",
+    field: "type",
+    value: next
+  });
+
+  el.classList.remove("saving");
+
+  if (res.ok) {
+    showToast("Збережено ✓");
+    refreshCard(id, "materials");
+  } else {
+    showToast("Помилка збереження", true);
+    el.value = cur;
+    if (record) record.type = cur;
+  }
+}
+   
 // ============================================================
 // INLINE РЕДАГУВАННЯ ТЕКСТУ
 // Клік → поле вводу → Enter або blur → зберегти в Notion
