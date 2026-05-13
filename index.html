@@ -471,6 +471,8 @@ body {
   padding: 1px 2px;
   margin-left: -2px;
   transition: background .12s;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .meta-text:hover {
@@ -877,9 +879,6 @@ function buildModule(mod, colorIdx) {
     s + DATA.videos.filter(v => v.lessonId === l.id).length, 0);
   const issues = lessons.reduce((s, l) =>
     s + DATA.videos.filter(v => v.lessonId === l.id && v.status !== "OK").length, 0);
-  const mismatches = lessons.reduce((s, l) =>
-    s + DATA.videos.filter(v => v.lessonId === l.id && v.name !== v.ytName && v.ytName).length, 0);
-
   const col = document.createElement("div");
   col.className = "mod-col";
   col.innerHTML = `
@@ -893,7 +892,6 @@ function buildModule(mod, colorIdx) {
         ${buildStatusSelectHTML(mod.id, "modules", mod.status, true)}
         <span class="mod-badge" style="background:rgba(255,255,255,.5);color:${c.color}">${totalVids} відео</span>
         ${issues ? `<span class="mod-badge" style="background:var(--chg-bg);color:var(--chg)">${issues} ⚠</span>` : ""}
-        ${mismatches ? `<span class="mod-badge" style="background:var(--rev-bg);color:var(--rev)">${mismatches} YT≠</span>` : ""}
       </div>
     </div>
     <div class="mod-body" id="mbd_${mod.id}">
@@ -914,11 +912,9 @@ function buildLessonHTML(les) {
     .sort((a, b) => ((a.order ?? a.number) || 0) - ((b.order ?? b.number) || 0));
 
   const issues = videos.filter(v => v.status !== "OK").length;
-  const mismatches = videos.filter(v => v.name !== v.ytName && v.ytName).length;
   const sub = [
     `${videos.length} відео`,
     issues ? `${issues} потребують уваги` : "",
-    mismatches ? `${mismatches} YT Назва≠внутр.` : "",
   ].filter(Boolean).join(" · ");
 
   return `<div class="les-card" id="lc_${les.id}">
@@ -963,7 +959,6 @@ function buildLessonHTML(les) {
 // HTML рядка відео
 function buildVideoHTML(v) {
   const ytName = v.ytName || "";
-  const mismatch = ytName && v.name !== ytName;
   const itemId = `video_${v.id}`;
 
   return `<div class="vid-row" data-vid="${v.id}" data-status="${v.status || ""}">
@@ -993,11 +988,11 @@ function buildVideoHTML(v) {
               title="Клікни для редагування назви на заставці YouTube">${escHtml(v.ytTitle || "— не вказано")}</span>
       </div>
 
-      <div class="meta-block${mismatch ? " mismatch yt-block" : ""}">
+      <div class="meta-block">
         <span class="meta-label">YT Назва:</span>
         <span class="meta-text"
               onclick="editText(this, '${v.id}', 'videos', 'ytName')"
-              title="Клікни для редагування назви відео на YouTube">${escHtml(ytName || "— не вказано")}${mismatch ? ' <span class="warn">⚠ не збігається</span>' : ""}</span>
+              title="Клікни для редагування назви відео на YouTube">${escHtml(ytName || "— не вказано")}</span>
       </div>
 
       ${v.note
@@ -1079,8 +1074,6 @@ function buildStats() {
   const moduleCounts = { "OK": 0, "Змінити": 0, "Нове": 0, "Перевірити": 0 };
   allVids.forEach(v => { if (counts[v.status] !== undefined) counts[v.status]++; });
   DATA.modules.forEach(m => { const st = m.status || "Перевірити"; if (moduleCounts[st] !== undefined) moduleCounts[st]++; });
-  const mismatches = allVids.filter(v => v.ytName && v.name !== v.ytName).length;
-
   document.getElementById("statsbar").innerHTML = `
     <div class="stat"><span class="stat-n">${DATA.modules.length}</span><span class="stat-l">Модулі</span></div>
     <div class="stat"><span class="stat-n" style="color:var(--rev)">${moduleCounts["Перевірити"]}</span><span class="stat-l">Модулі: перевірити</span></div>
@@ -1090,7 +1083,6 @@ function buildStats() {
     <div class="stat"><span class="stat-n" style="color:var(--chg)">${counts["Змінити"]}</span><span class="stat-l">Змінити</span></div>
     <div class="stat"><span class="stat-n" style="color:var(--new)">${counts["Нове"]}</span><span class="stat-l">Нові</span></div>
     <div class="stat"><span class="stat-n" style="color:var(--rev)">${counts["Перевірити"]}</span><span class="stat-l">Перевірити</span></div>
-    <div class="stat"><span class="stat-n" style="color:var(--chg)">${mismatches}</span><span class="stat-l">YT Назва ≠ внутр.</span></div>
     <div class="stat"><span class="stat-n">${DATA.materials.length}</span><span class="stat-l">Матеріали</span></div>
   `;
 }
@@ -1202,13 +1194,23 @@ async function updateStatus(el) {
 // Клік → поле вводу → Enter або blur → зберегти в Notion
 // ============================================================
 function editText(el, id, table, field) {
-  if (el.querySelector("input")) return; // вже редагується
+  if (el.querySelector("input, textarea")) return; // вже редагується
 
   const original = el.dataset.value || el.textContent.trim()
     .replace(" ⚠ не збігається", "").trim();
 
-  const input = document.createElement("input");
-  input.type = "text";
+  const isMultiline = table === "videos" && field === "ytTitle";
+  const input = isMultiline ? document.createElement("textarea") : document.createElement("input");
+
+  if (isMultiline) {
+    input.rows = 4;
+    input.style.resize = "vertical";
+    input.style.minHeight = "70px";
+    input.title = "Enter — новий рядок, Ctrl+Enter — зберегти";
+  } else {
+    input.type = "text";
+  }
+
   input.className = "inline-edit";
   input.value = original;
   input.style.fontSize = window.getComputedStyle(el).fontSize;
@@ -1248,7 +1250,8 @@ function editText(el, id, table, field) {
 
   input.addEventListener("blur", save);
   input.addEventListener("keydown", e => {
-    if (e.key === "Enter") { e.preventDefault(); input.blur(); }
+    if (!isMultiline && e.key === "Enter") { e.preventDefault(); input.blur(); }
+    if (isMultiline && e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); input.blur(); }
     if (e.key === "Escape") { input.removeEventListener("blur", save); rebuildElement(el, id, table, field, original); }
   });
 }
@@ -1330,7 +1333,7 @@ function openAddVideo(lessonId) {
     [
       { id: "name", label: "Внутрішня назва відео", type: "text", placeholder: "1. Назва відео..." },
       { id: "order", label: "Порядок / №", type: "number", value: nextOrder(DATA.videos.filter(v => v.lessonId === lessonId), "order") },
-      { id: "ytTitle", label: "YT Заставка", type: "text", placeholder: "Текст на заставці..." },
+      { id: "ytTitle", label: "YT Заставка", type: "textarea", placeholder: "Текст на заставці..." },
       { id: "ytName", label: "YT Назва", type: "text", placeholder: "Назва відео на YouTube..." },
       { id: "status", label: "Статус", type: "select", options: ["Перевірити", "OK", "Змінити", "Нове"], value: "Нове" },
     ],
