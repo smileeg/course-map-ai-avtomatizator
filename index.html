@@ -264,7 +264,7 @@ body {
 
 /* ============================================================
    ПІЛЮЛІ СТАТУСУ
-   Клік циклує: OK → Змінити → Нове → Перевірка → OK
+   Клік циклує: OK → Змінити → Нове → Перевірити → OK
    ============================================================ */
 .pill {
   font-size: 9px; font-family: 'DM Mono', monospace; font-weight: 500;
@@ -577,13 +577,13 @@ body {
     <button class="fbtn" onclick="setFilter('OK', this)">OK</button>
     <button class="fbtn" onclick="setFilter('Змінити', this)">Змінити</button>
     <button class="fbtn" onclick="setFilter('Нове', this)">Нові</button>
-    <button class="fbtn" onclick="setFilter('Перевірка', this)">Перевірка</button>
+    <button class="fbtn" onclick="setFilter('Перевірити', this)">Перевірити</button>
     <div class="sep"></div>
     <div class="legend">
       <span class="leg"><span class="ldot" style="background:var(--ok)"></span>OK</span>
       <span class="leg"><span class="ldot" style="background:var(--chg)"></span>Змінити</span>
       <span class="leg"><span class="ldot" style="background:var(--new)"></span>Нове</span>
-      <span class="leg"><span class="ldot" style="background:var(--rev)"></span>Перевірка</span>
+      <span class="leg"><span class="ldot" style="background:var(--rev)"></span>Перевірити</span>
     </div>
     <button class="refresh-btn" id="refresh-btn" onclick="loadData()">
       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -635,17 +635,17 @@ const WORKER_URL = "https://course-map.palchikovaolesya.workers.dev"; // ← З�
 const STATUS_CYCLE = {
   "OK":         "Змінити",
   "Змінити":    "Нове",
-  "Нове":       "Перевірка",
-  "Перевірка":  "OK",
+  "Нове":       "Перевірити",
+  "Перевірити":  "OK",
 };
 
 const STATUS_CLASS = {
   "OK":        "p-ok",
   "Змінити":   "p-change",
   "Нове":      "p-new",
-  "Перевірка": "p-review",
+  "Перевірити": "p-review",
 };
-const STATUS_OPTIONS = ["Перевірка", "OK", "Змінити", "Нове"];
+const STATUS_OPTIONS = ["Перевірити", "OK", "Змінити", "Нове"];
 
 // Кольори колонок модулів (за порядком)
 const MOD_COLORS = [
@@ -882,7 +882,7 @@ function buildVideoHTML(v) {
 }
 
 function buildStatusSelectHTML(id, table, status, stopPropagation = false) {
-  const current = status || "Перевірка";
+  const current = status || "Перевірити";
   const sc = STATUS_CLASS[current] || "p-review";
   const stop = stopPropagation ? "event.stopPropagation();" : "";
   return `<select class="status-select ${sc}" data-id="${id}" data-table="${table}" onchange="${stop}updateStatus(this)">
@@ -911,21 +911,21 @@ function buildMaterialHTML(m) {
 // ============================================================
 function buildStats() {
   const allVids = DATA.videos;
-  const counts = { "OK": 0, "Змінити": 0, "Нове": 0, "Перевірка": 0 };
-  const moduleCounts = { "OK": 0, "Змінити": 0, "Нове": 0, "Перевірка": 0 };
+  const counts = { "OK": 0, "Змінити": 0, "Нове": 0, "Перевірити": 0 };
+  const moduleCounts = { "OK": 0, "Змінити": 0, "Нове": 0, "Перевірити": 0 };
   allVids.forEach(v => { if (counts[v.status] !== undefined) counts[v.status]++; });
-  DATA.modules.forEach(m => { const st = m.status || "Перевірка"; if (moduleCounts[st] !== undefined) moduleCounts[st]++; });
+  DATA.modules.forEach(m => { const st = m.status || "Перевірити"; if (moduleCounts[st] !== undefined) moduleCounts[st]++; });
   const mismatches = allVids.filter(v => v.ytName && v.name !== v.ytName).length;
 
   document.getElementById("statsbar").innerHTML = `
     <div class="stat"><span class="stat-n">${DATA.modules.length}</span><span class="stat-l">Модулі</span></div>
-    <div class="stat"><span class="stat-n" style="color:var(--rev)">${moduleCounts["Перевірка"]}</span><span class="stat-l">Модулі: перевірка</span></div>
+    <div class="stat"><span class="stat-n" style="color:var(--rev)">${moduleCounts["Перевірити"]}</span><span class="stat-l">Модулі: перевірити</span></div>
     <div class="stat"><span class="stat-n">${DATA.lessons.length}</span><span class="stat-l">Уроки</span></div>
     <div class="stat"><span class="stat-n">${allVids.length}</span><span class="stat-l">Відео</span></div>
     <div class="stat"><span class="stat-n" style="color:var(--ok)">${counts["OK"]}</span><span class="stat-l">OK</span></div>
     <div class="stat"><span class="stat-n" style="color:var(--chg)">${counts["Змінити"]}</span><span class="stat-l">Змінити</span></div>
     <div class="stat"><span class="stat-n" style="color:var(--new)">${counts["Нове"]}</span><span class="stat-l">Нові</span></div>
-    <div class="stat"><span class="stat-n" style="color:var(--rev)">${counts["Перевірка"]}</span><span class="stat-l">Перевірка</span></div>
+    <div class="stat"><span class="stat-n" style="color:var(--rev)">${counts["Перевірити"]}</span><span class="stat-l">Перевірити</span></div>
     <div class="stat"><span class="stat-n" style="color:var(--chg)">${mismatches}</span><span class="stat-l">YT Назва ≠ внутр.</span></div>
     <div class="stat"><span class="stat-n">${DATA.materials.length}</span><span class="stat-l">Матеріали</span></div>
   `;
@@ -957,7 +957,7 @@ async function cycleStatus(el) {
   const id    = el.dataset.id;
   const table = el.dataset.table;
   const cur   = el.textContent.trim();
-  const next  = STATUS_CYCLE[cur] || "Перевірка";
+  const next  = STATUS_CYCLE[cur] || "Перевірити";
 
   // Одразу міняємо UI (оптимістично)
   el.textContent = next;
@@ -994,8 +994,8 @@ async function updateStatus(el) {
   const id = el.dataset.id;
   const table = el.dataset.table;
   const record = findRecord(table, id);
-  const cur = record?.status || "Перевірка";
-  const next = el.value || "Перевірка";
+  const cur = record?.status || "Перевірити";
+  const next = el.value || "Перевірити";
   if (cur === next) return;
 
   Object.values(STATUS_CLASS).forEach(c => el.classList.remove(c));
@@ -1125,7 +1125,7 @@ function openAddLesson(moduleId) {
     [
       { id: "name", label: "Назва уроку", type: "text", placeholder: "Урок X.X Назва..." },
       { id: "order", label: "Порядок / №", type: "number", value: nextOrder(DATA.lessons.filter(l => l.moduleId === moduleId), "order") },
-      { id: "status", label: "Статус", type: "select", options: ["Перевірка", "OK", "Змінити", "Нове"], value: "Нове" },
+      { id: "status", label: "Статус", type: "select", options: ["Перевірити", "OK", "Змінити", "Нове"], value: "Нове" },
     ],
     async (values) => {
       const res = await api("POST", "/create", {
@@ -1150,7 +1150,7 @@ function openAddVideo(lessonId) {
       { id: "order", label: "Порядок / №", type: "number", value: nextOrder(DATA.videos.filter(v => v.lessonId === lessonId), "order") },
       { id: "ytTitle", label: "YT Заставка", type: "text", placeholder: "Текст на заставці..." },
       { id: "ytName", label: "YT Назва", type: "text", placeholder: "Назва відео на YouTube..." },
-      { id: "status", label: "Статус", type: "select", options: ["Перевірка", "OK", "Змінити", "Нове"], value: "Нове" },
+      { id: "status", label: "Статус", type: "select", options: ["Перевірити", "OK", "Змінити", "Нове"], value: "Нове" },
     ],
     async (values) => {
       const res = await api("POST", "/create", {
@@ -1174,7 +1174,7 @@ function openAddMaterial(lessonId) {
       { id: "name", label: "Назва матеріалу", type: "text", placeholder: "Назва файлу або посилання..." },
       { id: "order", label: "Порядок / №", type: "number", value: nextOrder(DATA.materials.filter(m => m.lessonId === lessonId), "order") },
       { id: "type", label: "Тип", type: "select", options: ["PDF", "Шаблон", "Презентація", "Посилання", "Відео", "Інше"], value: "PDF" },
-      { id: "status", label: "Статус", type: "select", options: ["Перевірка", "OK", "Змінити", "Нове"], value: "Нове" },
+      { id: "status", label: "Статус", type: "select", options: ["Перевірити", "OK", "Змінити", "Нове"], value: "Нове" },
     ],
     async (values) => {
       const res = await api("POST", "/create", {
@@ -1330,14 +1330,14 @@ function normalizeData(raw) {
   data.modules = data.modules.map(m => ({
     ...m,
     order: toNumber(m.order ?? m.number) ?? 0,
-    status: m.status || "Перевірка",
+    status: m.status || "Перевірити",
   }));
 
   data.lessons = data.lessons.map(l => ({
     ...l,
     moduleId: l.moduleId || relationId(l.module) || relationId(l.modules),
     order: toNumber(l.order ?? l.number) ?? 0,
-    status: l.status || "Перевірка",
+    status: l.status || "Перевірити",
   }));
 
   data.videos = data.videos.map(v => ({
@@ -1346,7 +1346,7 @@ function normalizeData(raw) {
     order: toNumber(v.order ?? v.number) ?? 0,
     ytTitle: v.ytTitle || "",
     ytName: v.ytName || "",
-    status: v.status || "Перевірка",
+    status: v.status || "Перевірити",
   }));
 
   data.materials = data.materials.map(m => {
@@ -1364,7 +1364,7 @@ function normalizeData(raw) {
       lessonId,
       videoId,
       order: toNumber(m.order ?? m.number) ?? 0,
-      status: m.status || "Перевірка",
+      status: m.status || "Перевірити",
     };
   });
 
