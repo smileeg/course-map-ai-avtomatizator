@@ -342,24 +342,45 @@ body {
 }
 
 .section-head {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 8px;
-  padding: 5px 6px;
-  margin-top: 4px;
+  padding: 7px 9px;
+  margin-top: 8px;
   border: 1px solid var(--border);
-  border-radius: 6px;
-  background: #fff;
+  border-radius: 8px;
   cursor: pointer;
   user-select: none;
-  transition: background .12s;
+  transition: all .12s;
+  box-shadow: 0 1px 3px rgba(0,0,0,.03);
 }
-.section-head:hover { background: var(--gray); }
+.section-head:hover {
+  filter: brightness(.985);
+  transform: translateY(-1px);
+}
+.section-head.video-section {
+  background: #eef6ff;
+  border-color: #c9def5;
+}
+.section-head.material-section {
+  background: #fff7e6;
+  border-color: #ead29a;
+}
 .section-title {
-  font-size: 9px; font-family: 'DM Mono', monospace;
-  text-transform: uppercase; letter-spacing: .6px;
+  font-size: 10px;
+  font-family: 'DM Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.section-toggle {
+  font-size: 10px;
   color: var(--muted);
 }
-.section-toggle { font-size: 9px; color: var(--muted); }
 .section-body {
   display: none;
   flex-direction: column;
@@ -478,6 +499,45 @@ body {
 .meta-text:hover {
   background: rgba(0,0,0,.06);
 }
+
+.check-warn-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--chg-bg);
+  border: 1px solid var(--chg-border);
+  color: var(--chg);
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  line-height: 12px;
+  text-align: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+  cursor: help;
+}
+
+.check-block.ok {
+  background: var(--ok-bg);
+  border-color: var(--ok-border);
+  color: var(--ok);
+}
+
+.check-block.warn {
+  background: var(--chg-bg);
+  border-color: var(--chg-border);
+  color: var(--chg);
+}
+
+.meta-text {
+  white-space: pre-wrap;
+}
+
+.view-btn.on {
+  background: #1a1a18;
+  color: #fff;
+  border-color: #1a1a18;
+}
+
    
 /* YouTube блок */
 .yt-block {
@@ -691,6 +751,13 @@ body {
       <span class="leg"><span class="ldot" style="background:var(--new)"></span>Нове</span>
       <span class="leg"><span class="ldot" style="background:var(--rev)"></span>Перевірити</span>
     </div>
+    <div class="sep"></div>
+    <span class="f-label">Вигляд:</span>
+    <button class="fbtn view-btn on" id="view-compact" onclick="setViewMode('compact')">Компактний</button>
+    <button class="fbtn view-btn" id="view-detail" onclick="setViewMode('detail')">Детальний</button>
+    <div class="sep"></div>
+    <button class="fbtn" onclick="expandAll()">Розгорнути все</button>
+    <button class="fbtn" onclick="collapseAll()">Згорнути все</button>
     <button class="refresh-btn" id="refresh-btn" onclick="loadData()">
       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
         <path d="M1 4v6h6M23 20v-6h-6"/>
@@ -771,6 +838,7 @@ const MOD_COLORS = [
 // ============================================================
 let DATA = { modules: [], lessons: [], videos: [], materials: [] };
 let currentFilter = "all";
+let viewMode = localStorage.getItem("courseMapViewMode") || "compact";
 let modalCallback = null; // функція яка викликається при збереженні модалки
 
 // ============================================================
@@ -835,6 +903,7 @@ async function loadData(preserveState = true) {
   buildStats();
 
   restoreOpenState(openState);
+  applyViewMode();
 }
 
 function showLoading(show) {
@@ -933,8 +1002,8 @@ function buildLessonHTML(les) {
       </div>
     </div>
     <div class="les-body" id="lb_${les.id}">
-      <div class="section-head" onclick="toggleSection('${les.id}', 'videos')">
-        <span class="section-title">Відео (${videos.length})</span>
+      <div class="section-head video-section" onclick="toggleSection('${les.id}', 'videos')">
+        <span class="section-title">🎬 Відео (${videos.length})</span>
         <span class="section-toggle" id="st_${les.id}_videos">▶</span>
       </div>
       <div class="section-body" id="sb_${les.id}_videos">
@@ -942,8 +1011,8 @@ function buildLessonHTML(les) {
         <button class="add-btn" onclick="openAddVideo('${les.id}')">+ відео</button>
       </div>
 
-      <div class="section-head" onclick="toggleSection('${les.id}', 'materials')">
-        <span class="section-title">Матеріали (${mats.length})</span>
+      <div class="section-head material-section" onclick="toggleSection('${les.id}', 'materials')">
+        <span class="section-title">📎 Матеріали (${mats.length})</span>
         <span class="section-toggle" id="st_${les.id}_materials">▶</span>
       </div>
       <div class="section-body" id="sb_${les.id}_materials">
@@ -960,6 +1029,12 @@ function buildLessonHTML(les) {
 function buildVideoHTML(v) {
   const ytName = v.ytName || "";
   const itemId = `video_${v.id}`;
+  const check = getVideoTitleCheck(v);
+  const checkIcon = check.ok
+    ? ""
+    : `<span class="check-warn-dot" title="${escHtml(check.message)}">!</span>`;
+  const detailsClass = viewMode === "detail" ? "item-details open" : "item-details";
+  const toggleText = viewMode === "detail" ? "▼" : "▶";
 
   return `<div class="vid-row" data-vid="${v.id}" data-status="${v.status || ""}">
     <div class="vid-top">
@@ -969,16 +1044,22 @@ function buildVideoHTML(v) {
             onclick="editText(this, '${v.id}', 'videos', 'name')"
             title="Клікни для редагування">${escHtml(v.name)}</span>
 
+      ${checkIcon}
       ${buildStatusDotHTML(v.status)}
 
       <span class="item-toggle" id="it_${itemId}"
-            onclick="event.stopPropagation(); toggleItemDetails('${itemId}')">▶</span>
+            onclick="event.stopPropagation(); toggleItemDetails('${itemId}')">${toggleText}</span>
     </div>
 
-    <div class="item-details" id="id_${itemId}">
+    <div class="${detailsClass}" id="id_${itemId}">
       <div class="meta-block">
         <span class="meta-label">Статус:</span>
         ${buildStatusSelectHTML(v.id, "videos", v.status)}
+      </div>
+
+      <div class="meta-block ${check.ok ? "check-block ok" : "check-block warn"}">
+        <span class="meta-label">Перевірка:</span>
+        <span class="meta-text">${escHtml(check.message)}</span>
       </div>
 
       <div class="meta-block">
@@ -1029,6 +1110,8 @@ function buildMaterialHTML(m) {
 
   const icon = typeIcons[m.type] || "📎";
   const itemId = `material_${m.id}`;
+  const detailsClass = viewMode === "detail" ? "item-details open" : "item-details";
+  const toggleText = viewMode === "detail" ? "▼" : "▶";
 
   return `<div class="mat-card" data-mat="${m.id}" data-status="${m.status || ""}">
     <div class="mat-top">
@@ -1042,10 +1125,10 @@ function buildMaterialHTML(m) {
       ${buildStatusDotHTML(m.status)}
 
       <span class="item-toggle" id="it_${itemId}"
-            onclick="event.stopPropagation(); toggleItemDetails('${itemId}')">▶</span>
+            onclick="event.stopPropagation(); toggleItemDetails('${itemId}')">${toggleText}</span>
     </div>
 
-    <div class="item-details" id="id_${itemId}">
+    <div class="${detailsClass}" id="id_${itemId}">
       <div class="meta-block">
         <span class="meta-label">Статус:</span>
         ${buildStatusSelectHTML(m.id, "materials", m.status)}
@@ -1074,6 +1157,7 @@ function buildStats() {
   const moduleCounts = { "OK": 0, "Змінити": 0, "Нове": 0, "Перевірити": 0 };
   allVids.forEach(v => { if (counts[v.status] !== undefined) counts[v.status]++; });
   DATA.modules.forEach(m => { const st = m.status || "Перевірити"; if (moduleCounts[st] !== undefined) moduleCounts[st]++; });
+  const titleIssues = allVids.filter(v => !getVideoTitleCheck(v).ok).length;
   document.getElementById("statsbar").innerHTML = `
     <div class="stat"><span class="stat-n">${DATA.modules.length}</span><span class="stat-l">Модулі</span></div>
     <div class="stat"><span class="stat-n" style="color:var(--rev)">${moduleCounts["Перевірити"]}</span><span class="stat-l">Модулі: перевірити</span></div>
@@ -1083,6 +1167,7 @@ function buildStats() {
     <div class="stat"><span class="stat-n" style="color:var(--chg)">${counts["Змінити"]}</span><span class="stat-l">Змінити</span></div>
     <div class="stat"><span class="stat-n" style="color:var(--new)">${counts["Нове"]}</span><span class="stat-l">Нові</span></div>
     <div class="stat"><span class="stat-n" style="color:var(--rev)">${counts["Перевірити"]}</span><span class="stat-l">Перевірити</span></div>
+    <div class="stat"><span class="stat-n" style="color:var(--chg)">${titleIssues}</span><span class="stat-l">Назва не в YT</span></div>
     <div class="stat"><span class="stat-n">${DATA.materials.length}</span><span class="stat-l">Матеріали</span></div>
   `;
 }
@@ -1113,6 +1198,121 @@ function toggleItemDetails(itemId) {
 
   const open = body.classList.toggle("open");
   tog.textContent = open ? "▼" : "▶";
+}
+
+
+function setOpen(el, toggle, open) {
+  if (!el) return;
+  el.classList.toggle("open", open);
+  if (toggle) toggle.textContent = open ? "▼" : "▶";
+}
+
+function expandAll() {
+  document.querySelectorAll(".les-body").forEach(el => {
+    const id = el.id.replace("lb_", "");
+    setOpen(el, document.getElementById("tog_" + id), true);
+  });
+
+  document.querySelectorAll(".section-body").forEach(el => {
+    const key = el.id.replace("sb_", "");
+    setOpen(el, document.getElementById("st_" + key), true);
+  });
+
+  document.querySelectorAll(".item-details").forEach(el => {
+    const key = el.id.replace("id_", "");
+    setOpen(el, document.getElementById("it_" + key), true);
+  });
+}
+
+function collapseAll() {
+  document.querySelectorAll(".item-details").forEach(el => {
+    const key = el.id.replace("id_", "");
+    setOpen(el, document.getElementById("it_" + key), false);
+  });
+
+  document.querySelectorAll(".section-body").forEach(el => {
+    const key = el.id.replace("sb_", "");
+    setOpen(el, document.getElementById("st_" + key), false);
+  });
+
+  document.querySelectorAll(".les-body").forEach(el => {
+    const id = el.id.replace("lb_", "");
+    setOpen(el, document.getElementById("tog_" + id), false);
+  });
+}
+
+function setViewMode(mode) {
+  viewMode = mode === "detail" ? "detail" : "compact";
+  localStorage.setItem("courseMapViewMode", viewMode);
+  applyViewMode();
+}
+
+function applyViewMode() {
+  document.querySelectorAll(".view-btn").forEach(btn => btn.classList.remove("on"));
+  document.getElementById("view-compact")?.classList.toggle("on", viewMode === "compact");
+  document.getElementById("view-detail")?.classList.toggle("on", viewMode === "detail");
+
+  if (viewMode === "detail") {
+    document.querySelectorAll(".item-details").forEach(el => {
+      const key = el.id.replace("id_", "");
+      setOpen(el, document.getElementById("it_" + key), true);
+    });
+  }
+
+  if (viewMode === "compact") {
+    document.querySelectorAll(".item-details").forEach(el => {
+      const key = el.id.replace("id_", "");
+      setOpen(el, document.getElementById("it_" + key), false);
+    });
+  }
+}
+
+function stripLeadingNumber(text) {
+  return String(text || "")
+    .replace(/^\s*(?:№|#)?\s*\d+(?:[\.\)\]\-–—_:]\s*\d+)*[\.\)\]\-–—_:\s]*/u, "")
+    .trim();
+}
+
+function normalizeForTitleCheck(text) {
+  return stripLeadingNumber(text)
+    .toLowerCase()
+    .replace(/[`'ʼ’‘"“”«»„]/g, "")
+    .replace(/[^0-9a-zа-яіїєґ\s]+/giu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function includesNormalizedTitle(haystack, needle) {
+  const h = normalizeForTitleCheck(haystack);
+  const n = normalizeForTitleCheck(needle);
+  return Boolean(n) && h.includes(n);
+}
+
+function getVideoTitleCheck(v) {
+  const base = stripLeadingNumber(v?.name || "");
+  const normalizedBase = normalizeForTitleCheck(base);
+  const missing = [];
+
+  if (!normalizedBase) {
+    return { ok: true, base: "", message: "Назва відео без початкового номера порожня." };
+  }
+
+  if (!includesNormalizedTitle(v?.ytTitle || "", base)) missing.push("YT Заставка");
+  if (!includesNormalizedTitle(v?.ytName || "", base)) missing.push("YT Назва");
+
+  if (!missing.length) {
+    return {
+      ok: true,
+      base,
+      message: `OK: “${base}” є в YT Заставці та YT Назві.`,
+    };
+  }
+
+  return {
+    ok: false,
+    base,
+    message: `Немає тексту “${base}” у: ${missing.join(", ")}.`,
+  };
 }
    
 // ============================================================
@@ -1687,6 +1887,9 @@ function getOpenState() {
     sections: [...document.querySelectorAll(".section-body.open")]
       .map(el => el.id.replace("sb_", "")),
 
+    items: [...document.querySelectorAll(".item-details.open")]
+      .map(el => el.id.replace("id_", "")),
+
     scrollLeft: document.querySelector(".board-wrap")?.scrollLeft || 0,
   };
 }
@@ -1705,6 +1908,14 @@ function restoreOpenState(state) {
   state.sections.forEach(key => {
     const body = document.getElementById("sb_" + key);
     const tog = document.getElementById("st_" + key);
+
+    if (body) body.classList.add("open");
+    if (tog) tog.textContent = "▼";
+  });
+
+  (state.items || []).forEach(key => {
+    const body = document.getElementById("id_" + key);
+    const tog = document.getElementById("it_" + key);
 
     if (body) body.classList.add("open");
     if (tog) tog.textContent = "▼";
