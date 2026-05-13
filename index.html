@@ -717,7 +717,7 @@ async function loadData() {
   btn.classList.add("spinning");
 
   const res = await api("GET", "/data");
-  DATA = res;
+  DATA = normalizeData(res);
 
   document.getElementById("app").style.display = "block";
   showLoading(false);
@@ -770,7 +770,7 @@ function buildModule(mod, colorIdx) {
   const issues = lessons.reduce((s, l) =>
     s + DATA.videos.filter(v => v.lessonId === l.id && v.status !== "OK").length, 0);
   const mismatches = lessons.reduce((s, l) =>
-    s + DATA.videos.filter(v => v.lessonId === l.id && v.name !== v.ytTitle && v.ytTitle).length, 0);
+    s + DATA.videos.filter(v => v.lessonId === l.id && v.name !== v.ytName && v.ytName).length, 0);
 
   const col = document.createElement("div");
   col.className = "mod-col";
@@ -800,20 +800,17 @@ function buildModule(mod, colorIdx) {
 function buildLessonHTML(les) {
   const videos = DATA.videos
     .filter(v => v.lessonId === les.id)
-    .sort((a, b) => ((a.number ?? a.order) || 0) - ((b.number ?? b.order) || 0));
+    .sort((a, b) => ((a.order ?? a.number) || 0) - ((b.order ?? b.number) || 0));
   const mats = DATA.materials
-    .filter(m => {
-      // Матеріали прив'язані до відео уроку
-      return videos.some(v => v.id === m.videoId);
-    })
+    .filter(m => m.lessonId === les.id)
     .sort((a, b) => ((a.order ?? a.number) || 0) - ((b.order ?? b.number) || 0));
 
   const issues = videos.filter(v => v.status !== "OK").length;
-  const mismatches = videos.filter(v => v.name !== v.ytTitle && v.ytTitle).length;
+  const mismatches = videos.filter(v => v.name !== v.ytName && v.ytName).length;
   const sub = [
     `${videos.length} відео`,
     issues ? `${issues} потребують уваги` : "",
-    mismatches ? `${mismatches} YT≠назва` : "",
+    mismatches ? `${mismatches} YT Назва≠внутр.` : "",
   ].filter(Boolean).join(" · ");
 
   return `<div class="les-card" id="lc_${les.id}">
@@ -857,21 +854,27 @@ function buildLessonHTML(les) {
 
 // HTML рядка відео
 function buildVideoHTML(v) {
-  const mismatch = v.ytTitle && v.name !== v.ytTitle;
+  const ytName = v.ytName || "";
+  const mismatch = ytName && v.name !== ytName;
 
   return `<div class="vid-row" data-vid="${v.id}" data-status="${v.status || ""}">
     <div class="vid-top">
-      <span class="vid-icon"></span>
       <span class="vid-title"
             onclick="editText(this, '${v.id}', 'videos', 'name')"
             title="Клікни для редагування">${escHtml(v.name)}</span>
       ${buildStatusSelectHTML(v.id, "videos", v.status)}
     </div>
-    <div class="yt-block${mismatch ? " mismatch" : ""}">
-      <span class="yt-label">YT:</span>
+    <div class="yt-block">
+      <span class="yt-label">YT Заставка:</span>
       <span class="yt-text"
             onclick="editText(this, '${v.id}', 'videos', 'ytTitle')"
-            title="Клікни для редагування YouTube назви">${escHtml(v.ytTitle || "— не вказано")}${mismatch ? ' <span class="warn">⚠ не збігається</span>' : ""}</span>
+            title="Клікни для редагування назви на заставці YouTube">${escHtml(v.ytTitle || "— не вказано")}</span>
+    </div>
+    <div class="yt-block${mismatch ? " mismatch" : ""}">
+      <span class="yt-label">YT Назва:</span>
+      <span class="yt-text"
+            onclick="editText(this, '${v.id}', 'videos', 'ytName')"
+            title="Клікни для редагування назви відео на YouTube">${escHtml(ytName || "— не вказано")}${mismatch ? ' <span class="warn">⚠ не збігається</span>' : ""}</span>
     </div>
 
     ${v.note ? `<span class="note-tag" onclick="editNote('${v.id}', 'videos')">📝 ${escHtml(v.note)}</span>` : `<button class="add-btn" style="font-size:9px;padding:2px" onclick="editNote('${v.id}', 'videos')">+ примітка</button>`}
@@ -912,7 +915,7 @@ function buildStats() {
   const moduleCounts = { "OK": 0, "Змінити": 0, "Нове": 0, "Перевірка": 0 };
   allVids.forEach(v => { if (counts[v.status] !== undefined) counts[v.status]++; });
   DATA.modules.forEach(m => { const st = m.status || "Перевірка"; if (moduleCounts[st] !== undefined) moduleCounts[st]++; });
-  const mismatches = allVids.filter(v => v.ytTitle && v.name !== v.ytTitle).length;
+  const mismatches = allVids.filter(v => v.ytName && v.name !== v.ytName).length;
 
   document.getElementById("statsbar").innerHTML = `
     <div class="stat"><span class="stat-n">${DATA.modules.length}</span><span class="stat-l">Модулі</span></div>
@@ -923,7 +926,7 @@ function buildStats() {
     <div class="stat"><span class="stat-n" style="color:var(--chg)">${counts["Змінити"]}</span><span class="stat-l">Змінити</span></div>
     <div class="stat"><span class="stat-n" style="color:var(--new)">${counts["Нове"]}</span><span class="stat-l">Нові</span></div>
     <div class="stat"><span class="stat-n" style="color:var(--rev)">${counts["Перевірка"]}</span><span class="stat-l">Перевірка</span></div>
-    <div class="stat"><span class="stat-n" style="color:var(--chg)">${mismatches}</span><span class="stat-l">YT ≠ назва</span></div>
+    <div class="stat"><span class="stat-n" style="color:var(--chg)">${mismatches}</span><span class="stat-l">YT Назва ≠ внутр.</span></div>
     <div class="stat"><span class="stat-n">${DATA.materials.length}</span><span class="stat-l">Матеріали</span></div>
   `;
 }
@@ -1144,14 +1147,15 @@ function openAddVideo(lessonId) {
     "Нове відео",
     [
       { id: "name", label: "Внутрішня назва відео", type: "text", placeholder: "1. Назва відео..." },
-      { id: "number", label: "Порядок / №", type: "number", value: nextOrder(DATA.videos.filter(v => v.lessonId === lessonId), "number") },
-      { id: "ytTitle", label: "Назва на YouTube (заставка)", type: "text", placeholder: "Назва як на YouTube..." },
+      { id: "order", label: "Порядок / №", type: "number", value: nextOrder(DATA.videos.filter(v => v.lessonId === lessonId), "order") },
+      { id: "ytTitle", label: "YT Заставка", type: "text", placeholder: "Текст на заставці..." },
+      { id: "ytName", label: "YT Назва", type: "text", placeholder: "Назва відео на YouTube..." },
       { id: "status", label: "Статус", type: "select", options: ["Перевірка", "OK", "Змінити", "Нове"], value: "Нове" },
     ],
     async (values) => {
       const res = await api("POST", "/create", {
         table: "videos",
-        data: { name: values.name, number: toNumber(values.number), ytTitle: values.ytTitle, status: values.status, lessonId },
+        data: { name: values.name, order: toNumber(values.order), ytTitle: values.ytTitle, ytName: values.ytName, status: values.status, lessonId },
       });
       if (res.ok) {
         showToast("Відео додано ✓");
@@ -1164,23 +1168,18 @@ function openAddVideo(lessonId) {
 }
 
 function openAddMaterial(lessonId) {
-  // Знаходимо відео уроку для прив'язки
-  const lessonVideos = DATA.videos.filter(v => v.lessonId === lessonId);
-  const videoOptions = lessonVideos.map(v => ({ value: v.id, label: v.name }));
-
   openModal(
     "Новий матеріал",
     [
       { id: "name", label: "Назва матеріалу", type: "text", placeholder: "Назва файлу або посилання..." },
-      { id: "order", label: "Порядок / №", type: "number", value: nextOrder(DATA.materials.filter(m => lessonVideos.some(v => v.id === m.videoId)), "order") },
+      { id: "order", label: "Порядок / №", type: "number", value: nextOrder(DATA.materials.filter(m => m.lessonId === lessonId), "order") },
       { id: "type", label: "Тип", type: "select", options: ["PDF", "Шаблон", "Презентація", "Посилання", "Відео", "Інше"], value: "PDF" },
       { id: "status", label: "Статус", type: "select", options: ["Перевірка", "OK", "Змінити", "Нове"], value: "Нове" },
     ],
     async (values) => {
-      const videoId = lessonVideos[0]?.id || null; // прив'язуємо до першого відео уроку
       const res = await api("POST", "/create", {
         table: "materials",
-        data: { name: values.name, order: toNumber(values.order), type: values.type, status: values.status, videoId },
+        data: { name: values.name, order: toNumber(values.order), type: values.type, status: values.status, lessonId },
       });
       if (res.ok) {
         showToast("Матеріал додано ✓");
@@ -1191,7 +1190,6 @@ function openAddMaterial(lessonId) {
     }
   );
 }
-
 // ============================================================
 // ФІЛЬТР ВІДЕО
 // ============================================================
@@ -1302,6 +1300,77 @@ function showToast(msg, isError = false) {
 // ДОПОМІЖНІ ФУНКЦІЇ
 // ============================================================
 
+
+// Нормалізація даних з Worker
+// Підтримує обидва формати звʼязків:
+// - lessonId / moduleId
+// - lesson / module
+// - Notion relation у вигляді масиву або обʼєкта
+function relationId(value) {
+  if (!value) return null;
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) {
+    const first = value[0];
+    if (!first) return null;
+    if (typeof first === "string") return first;
+    return first.id || first.page_id || null;
+  }
+  if (typeof value === "object") return value.id || value.page_id || null;
+  return null;
+}
+
+function normalizeData(raw) {
+  const data = {
+    modules: Array.isArray(raw?.modules) ? raw.modules : [],
+    lessons: Array.isArray(raw?.lessons) ? raw.lessons : [],
+    videos: Array.isArray(raw?.videos) ? raw.videos : [],
+    materials: Array.isArray(raw?.materials) ? raw.materials : [],
+  };
+
+  data.modules = data.modules.map(m => ({
+    ...m,
+    order: toNumber(m.order ?? m.number) ?? 0,
+    status: m.status || "Перевірка",
+  }));
+
+  data.lessons = data.lessons.map(l => ({
+    ...l,
+    moduleId: l.moduleId || relationId(l.module) || relationId(l.modules),
+    order: toNumber(l.order ?? l.number) ?? 0,
+    status: l.status || "Перевірка",
+  }));
+
+  data.videos = data.videos.map(v => ({
+    ...v,
+    lessonId: v.lessonId || relationId(v.lesson) || relationId(v.lessons),
+    order: toNumber(v.order ?? v.number) ?? 0,
+    ytTitle: v.ytTitle || "",
+    ytName: v.ytName || "",
+    status: v.status || "Перевірка",
+  }));
+
+  data.materials = data.materials.map(m => {
+    let lessonId = m.lessonId || relationId(m.lesson) || relationId(m.lessons);
+
+    // Сумісність зі старою схемою: матеріал був привʼязаний до відео
+    const videoId = m.videoId || relationId(m.video) || relationId(m.videos);
+    if (!lessonId && videoId) {
+      const linkedVideo = data.videos.find(v => v.id === videoId);
+      lessonId = linkedVideo?.lessonId || null;
+    }
+
+    return {
+      ...m,
+      lessonId,
+      videoId,
+      order: toNumber(m.order ?? m.number) ?? 0,
+      status: m.status || "Перевірка",
+    };
+  });
+
+  return data;
+}
+
 // Знайти запис у локальних даних
 function findRecord(table, id) {
   const map = { modules: "modules", lessons: "lessons", videos: "videos", materials: "materials" };
@@ -1319,8 +1388,7 @@ function refreshCard(id, table) {
     }
     if (table === "materials") {
       const m = DATA.materials.find(m => m.id === id);
-      const v = DATA.videos.find(v => v.id === m?.videoId);
-      lessonId = v?.lessonId;
+      lessonId = m?.lessonId;
     }
     if (!lessonId) return;
 
