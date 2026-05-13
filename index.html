@@ -280,6 +280,19 @@ body {
 .p-review { background: var(--rev-bg); color: var(--rev); border-color: var(--rev-border); }
 /* Статус "зберігається" */
 .pill.saving { opacity: .5; pointer-events: none; }
+.status-select {
+  font-size: 9px; font-family: 'DM Mono', monospace; font-weight: 500;
+  border-radius: 10px; border: 1px solid transparent;
+  padding: 2px 16px 2px 7px;
+  cursor: pointer;
+  appearance: none; -webkit-appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 9px) calc(50% - 1px), calc(100% - 5px) calc(50% - 1px);
+  background-size: 4px 4px, 4px 4px;
+  background-repeat: no-repeat;
+}
+.status-select:focus { outline: none; box-shadow: 0 0 0 2px rgba(26,26,24,.12); }
+.status-select.saving { opacity: .5; pointer-events: none; }
 
 .toggle { font-size: 8px; color: var(--muted); padding-top: 3px; }
 
@@ -601,6 +614,7 @@ const STATUS_CLASS = {
   "Нове":      "p-new",
   "Перевірка": "p-review",
 };
+const STATUS_OPTIONS = ["Перевірка", "OK", "Змінити", "Нове"];
 
 // Кольори колонок модулів (за порядком)
 const MOD_COLORS = [
@@ -768,8 +782,6 @@ function buildLessonHTML(les) {
     mismatches ? `${mismatches} YT≠назва` : "",
   ].filter(Boolean).join(" · ");
 
-  const sc = STATUS_CLASS[les.status] || "p-review";
-
   return `<div class="les-card" id="lc_${les.id}">
     <div class="les-head" onclick="toggleLesson('${les.id}')">
       <span class="les-num">${les.order || ""}</span>
@@ -781,9 +793,7 @@ function buildLessonHTML(les) {
         ${les.note ? `<span class="note-tag" onclick="event.stopPropagation(); editNote('${les.id}', 'lessons')">📝 ${escHtml(les.note)}</span>` : ""}
       </div>
       <div class="les-right">
-        <span class="pill ${sc}"
-              data-id="${les.id}" data-table="lessons"
-              onclick="event.stopPropagation(); cycleStatus(this)">${les.status || "Перевірка"}</span>
+        ${buildStatusSelectHTML(les.id, "lessons", les.status, true)}
         <span class="toggle" id="tog_${les.id}">▶</span>
       </div>
     </div>
@@ -806,7 +816,6 @@ function buildLessonHTML(les) {
 // HTML рядка відео
 function buildVideoHTML(v) {
   const mismatch = v.ytTitle && v.name !== v.ytTitle;
-  const sc = STATUS_CLASS[v.status] || "p-review";
 
   return `<div class="vid-row" data-vid="${v.id}" data-status="${v.status || ""}">
     <div class="vid-top">
@@ -814,9 +823,7 @@ function buildVideoHTML(v) {
       <span class="vid-title"
             onclick="editText(this, '${v.id}', 'videos', 'name')"
             title="Клікни для редагування">${escHtml(v.name)}</span>
-      <span class="pill ${sc}"
-            data-id="${v.id}" data-table="videos"
-            onclick="cycleStatus(this)">${v.status || "Перевірка"}</span>
+      ${buildStatusSelectHTML(v.id, "videos", v.status)}
     </div>
     <div class="yt-block${mismatch ? " mismatch" : ""}">
       <span class="yt-label">YT:</span>
@@ -832,6 +839,15 @@ function buildVideoHTML(v) {
       <button class="add-btn" style="font-size:9px;padding:2px" onclick="editYtUrl('${v.id}')">+ YouTube посилання</button>`}
     ${v.note ? `<span class="note-tag" onclick="editNote('${v.id}', 'videos')">📝 ${escHtml(v.note)}</span>` : `<button class="add-btn" style="font-size:9px;padding:2px" onclick="editNote('${v.id}', 'videos')">+ примітка</button>`}
   </div>`;
+}
+
+function buildStatusSelectHTML(id, table, status, stopPropagation = false) {
+  const current = status || "Перевірка";
+  const sc = STATUS_CLASS[current] || "p-review";
+  const stop = stopPropagation ? "event.stopPropagation();" : "";
+  return `<select class="status-select ${sc}" data-id="${id}" data-table="${table}" onchange="${stop}updateStatus(this)">
+    ${STATUS_OPTIONS.map(opt => `<option value="${opt}" ${opt === current ? "selected" : ""}>${opt}</option>`).join("")}
+  </select>`;
 }
 
 // HTML рядка матеріалу
@@ -918,6 +934,38 @@ async function cycleStatus(el) {
     showToast("Помилка збереження", true);
     // Відкатуємо
     el.textContent = cur;
+    Object.values(STATUS_CLASS).forEach(c => el.classList.remove(c));
+    el.classList.add(STATUS_CLASS[cur] || "p-review");
+    if (record) record.status = cur;
+  }
+}
+
+async function updateStatus(el) {
+  const id = el.dataset.id;
+  const table = el.dataset.table;
+  const record = findRecord(table, id);
+  const cur = record?.status || "Перевірка";
+  const next = el.value || "Перевірка";
+  if (cur === next) return;
+
+  Object.values(STATUS_CLASS).forEach(c => el.classList.remove(c));
+  el.classList.add(STATUS_CLASS[next] || "p-review");
+  el.classList.add("saving");
+
+  if (record) record.status = next;
+
+  const vidRow = document.querySelector(`.vid-row[data-vid="${id}"]`);
+  if (vidRow) { vidRow.dataset.status = next; applyFilter(); }
+
+  const res = await api("PATCH", "/update", { pageId: id, table, field: "status", value: next });
+  el.classList.remove("saving");
+
+  if (res.ok) {
+    showToast("Збережено ✓");
+    buildStats();
+  } else {
+    showToast("Помилка збереження", true);
+    el.value = cur;
     Object.values(STATUS_CLASS).forEach(c => el.classList.remove(c));
     el.classList.add(STATUS_CLASS[cur] || "p-review");
     if (record) record.status = cur;
