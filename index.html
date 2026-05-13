@@ -294,6 +294,35 @@ body {
 .status-select:focus { outline: none; box-shadow: 0 0 0 2px rgba(26,26,24,.12); }
 .status-select.saving { opacity: .5; pointer-events: none; }
 
+.status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+
+.status-dot.p-ok {
+  background: var(--ok);
+  border-color: var(--ok-border);
+}
+
+.status-dot.p-change {
+  background: var(--chg);
+  border-color: var(--chg-border);
+}
+
+.status-dot.p-new {
+  background: var(--new);
+  border-color: var(--new-border);
+}
+
+.status-dot.p-review {
+  background: var(--rev);
+  border-color: var(--rev-border);
+}
+   
 .toggle { font-size: 8px; color: var(--muted); padding-top: 3px; }
 
 /* ============================================================
@@ -945,13 +974,18 @@ function buildVideoHTML(v) {
             onclick="editText(this, '${v.id}', 'videos', 'name')"
             title="Клікни для редагування">${escHtml(v.name)}</span>
 
-      ${buildStatusSelectHTML(v.id, "videos", v.status)}
+      ${buildStatusDotHTML(v.status)}
 
       <span class="item-toggle" id="it_${itemId}"
             onclick="event.stopPropagation(); toggleItemDetails('${itemId}')">▶</span>
     </div>
 
     <div class="item-details" id="id_${itemId}">
+      <div class="meta-block">
+        <span class="meta-label">Статус:</span>
+        ${buildStatusSelectHTML(v.id, "videos", v.status)}
+      </div>
+
       <div class="meta-block">
         <span class="meta-label">YT Заставка:</span>
         <span class="meta-text"
@@ -982,6 +1016,12 @@ function buildStatusSelectHTML(id, table, status, stopPropagation = false) {
   </select>`;
 }
 
+function buildStatusDotHTML(status) {
+  const current = status || "Перевірити";
+  const sc = STATUS_CLASS[current] || "p-review";
+  return `<span class="status-dot ${sc}" title="${escHtml(current)}"></span>`;
+}
+   
 // HTML рядка матеріалу
 function buildMaterialHTML(m) {
   const typeIcons = {
@@ -1004,13 +1044,18 @@ function buildMaterialHTML(m) {
             onclick="editText(this, '${m.id}', 'materials', 'name')"
             title="Клікни для редагування">${escHtml(m.name)}</span>
 
-      ${buildStatusSelectHTML(m.id, "materials", m.status)}
+      ${buildStatusDotHTML(m.status)}
 
       <span class="item-toggle" id="it_${itemId}"
             onclick="event.stopPropagation(); toggleItemDetails('${itemId}')">▶</span>
     </div>
 
     <div class="item-details" id="id_${itemId}">
+      <div class="meta-block">
+        <span class="meta-label">Статус:</span>
+        ${buildStatusSelectHTML(m.id, "materials", m.status)}
+      </div>
+
       <div class="meta-block">
         <span class="meta-label">Тип:</span>
         <span class="meta-text"
@@ -1142,6 +1187,7 @@ async function updateStatus(el) {
   if (res.ok) {
     showToast("Збережено ✓");
     buildStats();
+    refreshCard(id, table);
   } else {
     showToast("Помилка збереження", true);
     el.value = cur;
