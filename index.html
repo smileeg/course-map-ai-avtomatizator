@@ -1,0 +1,1266 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Карта курсу</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   ЗМІННІ — кольори, розміри
+   Якщо хочеш змінити кольори — міняй тут
+   ============================================================ */
+:root {
+  --col-width: 280px;
+
+  /* Статуси */
+  --ok:       #2d6a4f; --ok-bg:     #d8f3dc; --ok-border:  #b7e4c7;
+  --chg:      #7d4e00; --chg-bg:    #fff3cd; --chg-border: #ffd97d;
+  --new:      #5c1a7a; --new-bg:    #ede7f6; --new-border: #c9b8e8;
+  --rev:      #0d4072; --rev-bg:    #dceeff; --rev-border: #93c5fd;
+
+  /* Модулі — кольори колонок (додай більше якщо є більше 9 модулів) */
+  --m1: #1a5276; --m1l: #d6eaf8;
+  --m2: #1e4d2b; --m2l: #d5f5e3;
+  --m3: #6b1a3a; --m3l: #fce4ec;
+  --m4: #5c3d00; --m4l: #fff8e1;
+  --m5: #3d1e6b; --m5l: #ede7f6;
+  --m6: #1a4a4a; --m6l: #d0f0f0;
+  --m7: #4a1a00; --m7l: #ffe5d0;
+  --m8: #2d2d00; --m8l: #fffacc;
+  --m9: #1a1a4a; --m9l: #e0e0ff;
+
+  --gray:   #f8f8f6;
+  --border: #e5e3df;
+  --text:   #1a1a18;
+  --muted:  #6b6964;
+  --bg:     #fafaf8;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  min-height: 100vh;
+}
+
+/* ============================================================
+   ЕКРАН ЛОГІНУ
+   ============================================================ */
+#login-screen {
+  position: fixed; inset: 0;
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000;
+}
+.login-box {
+  width: 340px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 36px 32px;
+  background: #fff;
+  box-shadow: 0 4px 24px rgba(0,0,0,.06);
+}
+.login-title {
+  font-family: 'Fraunces', serif;
+  font-size: 22px; font-weight: 600;
+  margin-bottom: 6px;
+}
+.login-sub {
+  font-size: 12px; color: var(--muted);
+  margin-bottom: 24px;
+}
+.login-input {
+  width: 100%; padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px; color: var(--text);
+  background: var(--gray);
+  margin-bottom: 12px;
+  outline: none;
+  transition: border-color .15s;
+}
+.login-input:focus { border-color: #1a1a18; background: #fff; }
+.login-btn {
+  width: 100%; padding: 10px;
+  background: #1a1a18; color: #fff;
+  border: none; border-radius: 8px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px; cursor: pointer;
+  transition: opacity .15s;
+}
+.login-btn:hover { opacity: .85; }
+.login-error {
+  color: #c0392b; font-size: 12px;
+  margin-top: 10px; display: none;
+}
+
+/* ============================================================
+   ЗАВАНТАЖЕННЯ
+   ============================================================ */
+#loading-screen {
+  position: fixed; inset: 0;
+  background: var(--bg);
+  display: none;
+  align-items: center; justify-content: center;
+  flex-direction: column; gap: 12px;
+  z-index: 999;
+}
+.loading-spinner {
+  width: 28px; height: 28px;
+  border: 2px solid var(--border);
+  border-top-color: var(--text);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { font-size: 12px; color: var(--muted); }
+
+/* ============================================================
+   ТУЛБАР
+   ============================================================ */
+#app { display: none; }
+
+.toolbar {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(250,250,248,.96);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 20px;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.toolbar-title {
+  font-family: 'Fraunces', serif;
+  font-size: 15px; font-weight: 600;
+}
+.sep { width: 1px; height: 20px; background: var(--border); }
+.f-label { font-size: 11px; color: var(--muted); }
+.fbtn {
+  font-size: 11px; font-family: 'DM Mono', monospace;
+  padding: 3px 10px; border-radius: 20px;
+  border: 1px solid var(--border);
+  background: transparent; cursor: pointer;
+  color: var(--muted); transition: all .15s;
+}
+.fbtn:hover { background: var(--gray); color: var(--text); }
+.fbtn.on { background: #1a1a18; color: #fff; border-color: #1a1a18; }
+
+/* Кнопка оновити */
+.refresh-btn {
+  margin-left: auto;
+  font-size: 11px; font-family: 'DM Mono', monospace;
+  padding: 3px 10px; border-radius: 20px;
+  border: 1px solid var(--border);
+  background: transparent; cursor: pointer;
+  color: var(--muted); transition: all .15s;
+  display: flex; align-items: center; gap: 5px;
+}
+.refresh-btn:hover { background: var(--gray); color: var(--text); }
+.refresh-btn.spinning svg { animation: spin .7s linear infinite; }
+
+/* Легенда */
+.legend { display: flex; gap: 12px; flex-wrap: wrap; }
+.leg { display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--muted); }
+.ldot { width: 7px; height: 7px; border-radius: 50%; }
+
+/* ============================================================
+   СТАТИСТИКА
+   ============================================================ */
+.statsbar {
+  padding: 8px 20px;
+  display: flex; gap: 20px; flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
+}
+.stat { display: flex; flex-direction: column; gap: 1px; }
+.stat-n { font-family: 'Fraunces', serif; font-size: 20px; line-height: 1; }
+.stat-l { font-size: 10px; color: var(--muted); letter-spacing: .3px; }
+
+/* ============================================================
+   ДОШКА (горизонтальний скрол)
+   ============================================================ */
+.board-wrap { overflow-x: auto; padding: 16px 20px 40px; }
+.board { display: flex; gap: 12px; align-items: flex-start; min-width: max-content; }
+
+/* ============================================================
+   КОЛОНКА МОДУЛЯ
+   ============================================================ */
+.mod-col { width: var(--col-width); flex-shrink: 0; }
+
+.mod-header {
+  border-radius: 10px 10px 0 0;
+  padding: 12px 14px 10px;
+  border: 1px solid var(--border); border-bottom: none;
+}
+.mod-tag {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px; letter-spacing: 1px; text-transform: uppercase;
+  opacity: .7; margin-bottom: 4px;
+}
+
+/* Назва модуля — клікабельна для редагування */
+.mod-name {
+  font-family: 'Fraunces', serif;
+  font-size: 15px; font-weight: 600; line-height: 1.25;
+  margin-bottom: 4px;
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 1px 3px; margin-left: -3px;
+  transition: background .12s;
+}
+.mod-name:hover { background: rgba(255,255,255,.3); }
+
+.mod-desc {
+  font-size: 10px; opacity: .7; line-height: 1.4;
+  cursor: pointer; border-radius: 4px;
+  padding: 1px 3px; margin-left: -3px;
+  transition: background .12s;
+}
+.mod-desc:hover { background: rgba(255,255,255,.3); }
+
+.mod-meta { margin-top: 8px; font-size: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
+.mod-badge {
+  padding: 2px 6px; border-radius: 8px;
+  font-family: 'DM Mono', monospace; font-size: 9px;
+}
+
+.mod-body {
+  border: 1px solid var(--border); border-top: none;
+  border-radius: 0 0 10px 10px;
+  padding: 8px;
+  display: flex; flex-direction: column; gap: 6px;
+  background: var(--gray);
+}
+
+/* ============================================================
+   КАРТКА УРОКУ
+   ============================================================ */
+.les-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px; overflow: hidden;
+}
+.les-head {
+  display: flex; align-items: flex-start; gap: 6px;
+  padding: 8px 10px; cursor: pointer;
+  transition: background .12s;
+}
+.les-head:hover { background: var(--gray); }
+.les-num {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px; color: var(--muted);
+  padding-top: 1px; min-width: 22px;
+}
+.les-info { flex: 1; }
+.les-name {
+  font-size: 12px; font-weight: 500; line-height: 1.3;
+  cursor: text;
+}
+.les-count { font-size: 10px; color: var(--muted); margin-top: 2px; }
+.les-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+
+/* ============================================================
+   ПІЛЮЛІ СТАТУСУ
+   Клік циклує: OK → Змінити → Нове → Перевірка → OK
+   ============================================================ */
+.pill {
+  font-size: 9px; font-family: 'DM Mono', monospace; font-weight: 500;
+  padding: 2px 7px; border-radius: 10px; cursor: pointer;
+  white-space: nowrap; border: 1px solid transparent;
+  transition: opacity .15s;
+  user-select: none;
+}
+.pill:hover { opacity: .75; }
+.p-ok     { background: var(--ok-bg);  color: var(--ok);  border-color: var(--ok-border); }
+.p-change { background: var(--chg-bg); color: var(--chg); border-color: var(--chg-border); }
+.p-new    { background: var(--new-bg); color: var(--new); border-color: var(--new-border); }
+.p-review { background: var(--rev-bg); color: var(--rev); border-color: var(--rev-border); }
+/* Статус "зберігається" */
+.pill.saving { opacity: .5; pointer-events: none; }
+
+.toggle { font-size: 8px; color: var(--muted); padding-top: 3px; }
+
+/* ============================================================
+   ТІЛО УРОКУ (розкривається)
+   ============================================================ */
+.les-body {
+  border-top: 1px solid var(--border);
+  padding: 8px 10px;
+  display: none; flex-direction: column; gap: 4px;
+}
+.les-body.open { display: flex; }
+
+.sec-label {
+  font-size: 9px; font-family: 'DM Mono', monospace;
+  text-transform: uppercase; letter-spacing: .6px;
+  color: var(--muted); margin-top: 4px; margin-bottom: 2px;
+}
+
+/* ============================================================
+   РЯДОК ВІДЕО
+   ============================================================ */
+.vid-row {
+  border: 1px solid var(--border);
+  border-radius: 6px; padding: 6px 8px;
+  display: flex; flex-direction: column; gap: 3px;
+  transition: background .12s;
+}
+.vid-row:hover { background: var(--gray); }
+.vid-row.hidden-item { display: none; }
+
+.vid-top { display: flex; align-items: flex-start; gap: 6px; }
+.vid-icon {
+  width: 18px; height: 12px; border-radius: 2px;
+  background: #e22c2c; display: flex; align-items: center;
+  justify-content: center; flex-shrink: 0; margin-top: 1px;
+}
+.vid-icon::after {
+  content: '';
+  border-left: 5px solid #fff;
+  border-top: 3px solid transparent;
+  border-bottom: 3px solid transparent;
+  margin-left: 1px;
+}
+
+/* Назва відео — клікабельна */
+.vid-title {
+  font-size: 11px; line-height: 1.4; flex: 1;
+  cursor: pointer; border-radius: 3px;
+  padding: 1px 2px; margin-left: -2px;
+  transition: background .12s;
+}
+.vid-title:hover { background: var(--border); }
+
+/* YouTube блок */
+.yt-block {
+  display: flex; align-items: flex-start; gap: 4px;
+  background: var(--rev-bg);
+  border: 1px solid var(--rev-border);
+  border-radius: 4px; padding: 3px 6px;
+  font-size: 10px; line-height: 1.35;
+  color: var(--rev);
+}
+/* Якщо назви не збігаються — жовтий */
+.yt-block.mismatch {
+  background: var(--chg-bg);
+  border-color: var(--chg-border);
+  color: var(--chg);
+}
+.yt-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px; font-weight: 500;
+  flex-shrink: 0; padding-top: 1px; opacity: .7;
+}
+.yt-text {
+  flex: 1; cursor: pointer; border-radius: 3px;
+  padding: 1px 2px; margin-left: -2px;
+  transition: background .12s;
+}
+.yt-text:hover { background: rgba(0,0,0,.06); }
+.warn { font-size: 9px; font-style: italic; opacity: .7; }
+
+/* YT посилання */
+.yt-url-row {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 10px; color: var(--muted);
+}
+.yt-url-link { color: var(--rev); text-decoration: none; font-size: 10px; }
+.yt-url-link:hover { text-decoration: underline; }
+.yt-url-edit {
+  font-size: 9px; color: var(--muted); cursor: pointer;
+  opacity: 0; transition: opacity .15s;
+}
+.vid-row:hover .yt-url-edit { opacity: 1; }
+
+/* Примітка */
+.note-tag {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 9px; color: var(--muted);
+  background: var(--gray); border: 1px solid var(--border);
+  border-radius: 4px; padding: 1px 5px;
+  cursor: pointer;
+}
+.note-tag:hover { background: var(--border); }
+
+/* ============================================================
+   МАТЕРІАЛИ
+   ============================================================ */
+.mat-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 3px 4px;
+}
+.mat-ico { font-size: 11px; }
+.mat-name { font-size: 11px; flex: 1; color: var(--muted); cursor: pointer; }
+.mat-name:hover { color: var(--text); }
+
+/* ============================================================
+   КНОПКИ ДОДАТИ
+   ============================================================ */
+.add-btn {
+  width: 100%; font-size: 10px; font-family: 'DM Sans', sans-serif;
+  color: var(--muted); padding: 4px;
+  border: 1px dashed var(--border);
+  border-radius: 5px; background: none; cursor: pointer;
+  text-align: center; margin-top: 2px; transition: all .12s;
+}
+.add-btn:hover { background: var(--gray); color: var(--text); border-style: solid; }
+
+.add-mod-btn {
+  width: 160px; flex-shrink: 0;
+  align-self: flex-start; margin-top: 0;
+  font-size: 11px; font-family: 'DM Sans', sans-serif;
+  color: var(--muted); padding: 12px;
+  border: 1px dashed var(--border);
+  border-radius: 10px; background: none; cursor: pointer;
+  text-align: center; transition: all .12s;
+}
+.add-mod-btn:hover { background: var(--gray); color: var(--text); }
+
+/* ============================================================
+   INLINE РЕДАГУВАННЯ — поле вводу прямо в картці
+   ============================================================ */
+.inline-edit {
+  width: 100%; font-size: inherit; font-family: inherit;
+  border: 1px solid #1a1a18; border-radius: 4px;
+  padding: 2px 5px; background: #fff; color: var(--text);
+  outline: none; line-height: inherit;
+}
+
+/* ============================================================
+   МОДАЛЬНЕ ВІКНО — для додавання нових записів
+   ============================================================ */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.35);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 500; opacity: 0; pointer-events: none;
+  transition: opacity .2s;
+}
+.modal-overlay.open { opacity: 1; pointer-events: all; }
+.modal {
+  background: #fff; border-radius: 12px;
+  padding: 24px; width: 360px;
+  box-shadow: 0 8px 40px rgba(0,0,0,.15);
+  transform: translateY(10px); transition: transform .2s;
+}
+.modal-overlay.open .modal { transform: translateY(0); }
+.modal-title {
+  font-family: 'Fraunces', serif;
+  font-size: 16px; font-weight: 600;
+  margin-bottom: 16px;
+}
+.modal-field { margin-bottom: 12px; }
+.modal-label { font-size: 11px; color: var(--muted); margin-bottom: 4px; display: block; }
+.modal-input {
+  width: 100%; padding: 8px 10px;
+  border: 1px solid var(--border); border-radius: 6px;
+  font-family: 'DM Sans', sans-serif; font-size: 13px;
+  background: var(--gray); color: var(--text);
+  outline: none; transition: border-color .15s;
+}
+.modal-input:focus { border-color: #1a1a18; background: #fff; }
+.modal-select {
+  width: 100%; padding: 8px 10px;
+  border: 1px solid var(--border); border-radius: 6px;
+  font-family: 'DM Sans', sans-serif; font-size: 13px;
+  background: var(--gray); color: var(--text);
+  outline: none; cursor: pointer;
+}
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+.modal-cancel {
+  padding: 7px 16px; border-radius: 6px;
+  border: 1px solid var(--border); background: none;
+  font-family: 'DM Sans', sans-serif; font-size: 13px;
+  cursor: pointer; color: var(--muted);
+}
+.modal-save {
+  padding: 7px 16px; border-radius: 6px;
+  border: none; background: #1a1a18; color: #fff;
+  font-family: 'DM Sans', sans-serif; font-size: 13px;
+  cursor: pointer; transition: opacity .15s;
+}
+.modal-save:hover { opacity: .85; }
+.modal-save:disabled { opacity: .5; cursor: not-allowed; }
+
+/* Тост — повідомлення про збереження */
+.toast {
+  position: fixed; bottom: 20px; right: 20px;
+  background: #1a1a18; color: #fff;
+  padding: 8px 16px; border-radius: 8px;
+  font-size: 12px; z-index: 999;
+  opacity: 0; transform: translateY(8px);
+  transition: all .2s; pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast.error { background: #c0392b; }
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     ЕКРАН ЛОГІНУ
+     ============================================================ -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-title">Карта курсу</div>
+    <div class="login-sub">Введи пароль для входу</div>
+    <input type="password" class="login-input" id="login-pwd" placeholder="Пароль" />
+    <button class="login-btn" id="login-btn">Увійти</button>
+    <div class="login-error" id="login-error">Невірний пароль</div>
+  </div>
+</div>
+
+<!-- Екран завантаження -->
+<div id="loading-screen">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">Завантажую дані з Notion...</div>
+</div>
+
+<!-- ============================================================
+     ОСНОВНИЙ ІНТЕРФЕЙС
+     ============================================================ -->
+<div id="app">
+
+  <!-- Тулбар -->
+  <div class="toolbar">
+    <span class="toolbar-title">Карта курсу</span>
+    <div class="sep"></div>
+    <span class="f-label">Фільтр відео:</span>
+    <button class="fbtn on" onclick="setFilter('all', this)">Всі</button>
+    <button class="fbtn" onclick="setFilter('OK', this)">OK</button>
+    <button class="fbtn" onclick="setFilter('Змінити', this)">Змінити</button>
+    <button class="fbtn" onclick="setFilter('Нове', this)">Нові</button>
+    <button class="fbtn" onclick="setFilter('Перевірка', this)">Перевірка</button>
+    <div class="sep"></div>
+    <div class="legend">
+      <span class="leg"><span class="ldot" style="background:var(--ok)"></span>OK</span>
+      <span class="leg"><span class="ldot" style="background:var(--chg)"></span>Змінити</span>
+      <span class="leg"><span class="ldot" style="background:var(--new)"></span>Нове</span>
+      <span class="leg"><span class="ldot" style="background:var(--rev)"></span>Перевірка</span>
+    </div>
+    <button class="refresh-btn" id="refresh-btn" onclick="loadData()">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M1 4v6h6M23 20v-6h-6"/>
+        <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 0 1 3.51 15"/>
+      </svg>
+      Оновити з Notion
+    </button>
+  </div>
+
+  <!-- Статистика -->
+  <div class="statsbar" id="statsbar"></div>
+
+  <!-- Дошка модулів -->
+  <div class="board-wrap">
+    <div class="board" id="board"></div>
+  </div>
+
+</div>
+
+<!-- Тост повідомлення -->
+<div class="toast" id="toast"></div>
+
+<!-- Модальне вікно -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-title" id="modal-title">Додати</div>
+    <div id="modal-fields"></div>
+    <div class="modal-actions">
+      <button class="modal-cancel" onclick="closeModal()">Скасувати</button>
+      <button class="modal-save" id="modal-save" onclick="saveModal()">Зберегти</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// НАЛАШТУВАННЯ
+// ⚙️ ВАЖЛИВО: встав URL свого Cloudflare Worker сюди
+// Після деплою Worker він виглядатиме так:
+// https://course-map.YOUR-NAME.workers.dev
+// ============================================================
+const WORKER_URL = "https://course-map.palchikovaolesya.workers.dev/"; // ← ЗАМІНИТИ
+
+// ============================================================
+// Статуси — порядок циклу при кліку
+// Якщо додаєш новий статус в Notion — додай його сюди теж
+// ============================================================
+const STATUS_CYCLE = {
+  "OK":         "Змінити",
+  "Змінити":    "Нове",
+  "Нове":       "Перевірка",
+  "Перевірка":  "OK",
+};
+
+const STATUS_CLASS = {
+  "OK":        "p-ok",
+  "Змінити":   "p-change",
+  "Нове":      "p-new",
+  "Перевірка": "p-review",
+};
+
+// Кольори колонок модулів (за порядком)
+const MOD_COLORS = [
+  { bg:"var(--m1l)", color:"var(--m1)" },
+  { bg:"var(--m2l)", color:"var(--m2)" },
+  { bg:"var(--m3l)", color:"var(--m3)" },
+  { bg:"var(--m4l)", color:"var(--m4)" },
+  { bg:"var(--m5l)", color:"var(--m5)" },
+  { bg:"var(--m6l)", color:"var(--m6)" },
+  { bg:"var(--m7l)", color:"var(--m7)" },
+  { bg:"var(--m8l)", color:"var(--m8)" },
+  { bg:"var(--m9l)", color:"var(--m9)" },
+];
+
+// ============================================================
+// СТАН ДОДАТКУ
+// ============================================================
+let DATA = { modules: [], lessons: [], videos: [], materials: [] };
+let currentFilter = "all";
+let modalCallback = null; // функція яка викликається при збереженні модалки
+
+// ============================================================
+// API — запити до Worker
+// ============================================================
+async function api(method, path, body = null) {
+  const res = await fetch(WORKER_URL + path, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: body ? JSON.stringify(body) : null,
+  });
+  return res.json();
+}
+
+// ============================================================
+// ЛОГІН
+// ============================================================
+document.getElementById("login-btn").addEventListener("click", async () => {
+  const pwd = document.getElementById("login-pwd").value;
+  if (!pwd) return;
+
+  const btn = document.getElementById("login-btn");
+  btn.textContent = "Завантаження...";
+  btn.disabled = true;
+
+  const res = await api("POST", "/login", { password: pwd });
+
+  if (res.ok) {
+    document.getElementById("login-screen").style.display = "none";
+    await loadData();
+  } else {
+    document.getElementById("login-error").style.display = "block";
+    btn.textContent = "Увійти";
+    btn.disabled = false;
+  }
+});
+
+// Enter у полі пароля
+document.getElementById("login-pwd").addEventListener("keydown", e => {
+  if (e.key === "Enter") document.getElementById("login-btn").click();
+});
+
+// ============================================================
+// ЗАВАНТАЖЕННЯ ДАНИХ
+// ============================================================
+async function loadData() {
+  showLoading(true);
+
+  const btn = document.getElementById("refresh-btn");
+  btn.classList.add("spinning");
+
+  const res = await api("GET", "/data");
+  DATA = res;
+
+  document.getElementById("app").style.display = "block";
+  showLoading(false);
+  btn.classList.remove("spinning");
+
+  buildBoard();
+  buildStats();
+}
+
+function showLoading(show) {
+  document.getElementById("loading-screen").style.display = show ? "flex" : "none";
+}
+
+// ============================================================
+// ПОБУДОВА ДОШКИ
+// ============================================================
+function buildBoard() {
+  const board = document.getElementById("board");
+  board.innerHTML = "";
+
+  // Сортуємо модулі за порядком
+  const sortedMods = [...DATA.modules].sort((a, b) => (a.order || 0) - (b.order || 0));
+
+  sortedMods.forEach((mod, idx) => {
+    const col = buildModule(mod, idx);
+    board.appendChild(col);
+  });
+
+  // Кнопка додати модуль (поки не активна — додавання модулів через Notion)
+  const addBtn = document.createElement("button");
+  addBtn.className = "add-mod-btn";
+  addBtn.textContent = "+ модуль (в Notion)";
+  addBtn.title = "Нові модулі додаються напряму в Notion";
+  board.appendChild(addBtn);
+
+  applyFilter();
+}
+
+// Будуємо колонку одного модуля
+function buildModule(mod, colorIdx) {
+  const c = MOD_COLORS[colorIdx % MOD_COLORS.length];
+
+  // Уроки цього модуля, відсортовані
+  const lessons = DATA.lessons
+    .filter(l => l.moduleId === mod.id)
+    .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+  const totalVids = lessons.reduce((s, l) =>
+    s + DATA.videos.filter(v => v.lessonId === l.id).length, 0);
+  const issues = lessons.reduce((s, l) =>
+    s + DATA.videos.filter(v => v.lessonId === l.id && v.status !== "OK").length, 0);
+  const mismatches = lessons.reduce((s, l) =>
+    s + DATA.videos.filter(v => v.lessonId === l.id && v.name !== v.ytTitle && v.ytTitle).length, 0);
+
+  const col = document.createElement("div");
+  col.className = "mod-col";
+  col.innerHTML = `
+    <div class="mod-header" style="background:${c.bg};color:${c.color}">
+      <div class="mod-tag">Модуль ${mod.order || colorIdx + 1}</div>
+      <div class="mod-name" title="Клікни для редагування"
+           onclick="editText(this, '${mod.id}', 'modules', 'name')">${escHtml(mod.name)}</div>
+      <div class="mod-desc" title="Клікни для редагування"
+           onclick="editText(this, '${mod.id}', 'modules', 'desc')">${escHtml(mod.desc || "Додати опис...")}</div>
+      <div class="mod-meta">
+        <span class="mod-badge" style="background:rgba(255,255,255,.5);color:${c.color}">${totalVids} відео</span>
+        ${issues ? `<span class="mod-badge" style="background:var(--chg-bg);color:var(--chg)">${issues} ⚠</span>` : ""}
+        ${mismatches ? `<span class="mod-badge" style="background:var(--rev-bg);color:var(--rev)">${mismatches} YT≠</span>` : ""}
+      </div>
+    </div>
+    <div class="mod-body" id="mbd_${mod.id}">
+      ${lessons.map(l => buildLessonHTML(l)).join("")}
+      <button class="add-btn" onclick="openAddLesson('${mod.id}')">+ урок</button>
+    </div>
+  `;
+  return col;
+}
+
+// HTML картки уроку
+function buildLessonHTML(les) {
+  const videos = DATA.videos
+    .filter(v => v.lessonId === les.id)
+    .sort((a, b) => (a.number || 0) - (b.number || 0));
+  const mats = DATA.materials.filter(m => {
+    // Матеріали прив'язані до відео уроку
+    return videos.some(v => v.id === m.videoId);
+  });
+
+  const issues = videos.filter(v => v.status !== "OK").length;
+  const mismatches = videos.filter(v => v.name !== v.ytTitle && v.ytTitle).length;
+  const sub = [
+    `${videos.length} відео`,
+    issues ? `${issues} потребують уваги` : "",
+    mismatches ? `${mismatches} YT≠назва` : "",
+  ].filter(Boolean).join(" · ");
+
+  const sc = STATUS_CLASS[les.status] || "p-review";
+
+  return `<div class="les-card" id="lc_${les.id}">
+    <div class="les-head" onclick="toggleLesson('${les.id}')">
+      <span class="les-num">${les.order || ""}</span>
+      <div class="les-info">
+        <div class="les-name"
+             onclick="event.stopPropagation(); editText(this, '${les.id}', 'lessons', 'name')"
+             title="Клікни для редагування назви">${escHtml(les.name)}</div>
+        <div class="les-count">${sub}</div>
+        ${les.note ? `<span class="note-tag" onclick="event.stopPropagation(); editNote('${les.id}', 'lessons')">📝 ${escHtml(les.note)}</span>` : ""}
+      </div>
+      <div class="les-right">
+        <span class="pill ${sc}"
+              data-id="${les.id}" data-table="lessons"
+              onclick="event.stopPropagation(); cycleStatus(this)">${les.status || "Перевірка"}</span>
+        <span class="toggle" id="tog_${les.id}">▶</span>
+      </div>
+    </div>
+    <div class="les-body" id="lb_${les.id}">
+      <div class="sec-label">Відео (${videos.length})</div>
+      ${videos.map(v => buildVideoHTML(v)).join("")}
+      <button class="add-btn" onclick="openAddVideo('${les.id}')">+ відео</button>
+
+      ${mats.length ? `
+        <div class="sec-label" style="margin-top:6px">Матеріали (${mats.length})</div>
+        ${mats.map(m => buildMaterialHTML(m)).join("")}
+      ` : `<div class="sec-label" style="margin-top:6px">Матеріали (0)</div>`}
+      <button class="add-btn" onclick="openAddMaterial('${les.id}')">+ матеріал</button>
+
+      ${!les.note ? `<button class="add-btn" style="margin-top:4px" onclick="editNote('${les.id}', 'lessons')">+ примітка до уроку</button>` : ""}
+    </div>
+  </div>`;
+}
+
+// HTML рядка відео
+function buildVideoHTML(v) {
+  const mismatch = v.ytTitle && v.name !== v.ytTitle;
+  const sc = STATUS_CLASS[v.status] || "p-review";
+
+  return `<div class="vid-row" data-vid="${v.id}" data-status="${v.status || ""}">
+    <div class="vid-top">
+      <span class="vid-icon"></span>
+      <span class="vid-title"
+            onclick="editText(this, '${v.id}', 'videos', 'name')"
+            title="Клікни для редагування">${escHtml(v.name)}</span>
+      <span class="pill ${sc}"
+            data-id="${v.id}" data-table="videos"
+            onclick="cycleStatus(this)">${v.status || "Перевірка"}</span>
+    </div>
+    <div class="yt-block${mismatch ? " mismatch" : ""}">
+      <span class="yt-label">YT:</span>
+      <span class="yt-text"
+            onclick="editText(this, '${v.id}', 'videos', 'ytTitle')"
+            title="Клікни для редагування YouTube назви">${escHtml(v.ytTitle || "— не вказано")}${mismatch ? ' <span class="warn">⚠ не збігається</span>' : ""}</span>
+    </div>
+    ${v.ytUrl ? `
+      <div class="yt-url-row">
+        <a class="yt-url-link" href="${escHtml(v.ytUrl)}" target="_blank" rel="noopener">▶ Відкрити на YouTube</a>
+        <span class="yt-url-edit" onclick="editText(this.closest('.vid-row').querySelector('.yt-url-link'), '${v.id}', 'videos', 'ytUrl')">✏️</span>
+      </div>` : `
+      <button class="add-btn" style="font-size:9px;padding:2px" onclick="editYtUrl('${v.id}')">+ YouTube посилання</button>`}
+    ${v.note ? `<span class="note-tag" onclick="editNote('${v.id}', 'videos')">📝 ${escHtml(v.note)}</span>` : `<button class="add-btn" style="font-size:9px;padding:2px" onclick="editNote('${v.id}', 'videos')">+ примітка</button>`}
+  </div>`;
+}
+
+// HTML рядка матеріалу
+function buildMaterialHTML(m) {
+  const typeIcons = { "PDF":"📄", "Відео":"🎬", "Посилання":"🔗", "Шаблон":"📋", "Презентація":"📊" };
+  const icon = typeIcons[m.type] || "📎";
+  const sc = STATUS_CLASS[m.status] || "p-review";
+
+  return `<div class="mat-row">
+    <span class="mat-ico">${icon}</span>
+    <span class="mat-name"
+          onclick="editText(this, '${m.id}', 'materials', 'name')"
+          title="Клікни для редагування">${escHtml(m.name)}</span>
+    <span class="pill ${sc}"
+          data-id="${m.id}" data-table="materials"
+          onclick="cycleStatus(this)">${m.status || "Перевірка"}</span>
+  </div>`;
+}
+
+// ============================================================
+// СТАТИСТИКА
+// ============================================================
+function buildStats() {
+  const allVids = DATA.videos;
+  const counts = { "OK": 0, "Змінити": 0, "Нове": 0, "Перевірка": 0 };
+  allVids.forEach(v => { if (counts[v.status] !== undefined) counts[v.status]++; });
+  const mismatches = allVids.filter(v => v.ytTitle && v.name !== v.ytTitle).length;
+
+  document.getElementById("statsbar").innerHTML = `
+    <div class="stat"><span class="stat-n">${DATA.modules.length}</span><span class="stat-l">Модулі</span></div>
+    <div class="stat"><span class="stat-n">${DATA.lessons.length}</span><span class="stat-l">Уроки</span></div>
+    <div class="stat"><span class="stat-n">${allVids.length}</span><span class="stat-l">Відео</span></div>
+    <div class="stat"><span class="stat-n" style="color:var(--ok)">${counts["OK"]}</span><span class="stat-l">OK</span></div>
+    <div class="stat"><span class="stat-n" style="color:var(--chg)">${counts["Змінити"]}</span><span class="stat-l">Змінити</span></div>
+    <div class="stat"><span class="stat-n" style="color:var(--new)">${counts["Нове"]}</span><span class="stat-l">Нові</span></div>
+    <div class="stat"><span class="stat-n" style="color:var(--rev)">${counts["Перевірка"]}</span><span class="stat-l">Перевірка</span></div>
+    <div class="stat"><span class="stat-n" style="color:var(--chg)">${mismatches}</span><span class="stat-l">YT ≠ назва</span></div>
+    <div class="stat"><span class="stat-n">${DATA.materials.length}</span><span class="stat-l">Матеріали</span></div>
+  `;
+}
+
+// ============================================================
+// РОЗКРИТИ/ЗАКРИТИ УРОК
+// ============================================================
+function toggleLesson(id) {
+  const body = document.getElementById("lb_" + id);
+  const tog  = document.getElementById("tog_" + id);
+  const open = body.classList.toggle("open");
+  tog.textContent = open ? "▼" : "▶";
+}
+
+// ============================================================
+// ЦИКЛ СТАТУСУ — клік на пілюлю
+// Зберігає в Notion через Worker
+// ============================================================
+async function cycleStatus(el) {
+  const id    = el.dataset.id;
+  const table = el.dataset.table;
+  const cur   = el.textContent.trim();
+  const next  = STATUS_CYCLE[cur] || "Перевірка";
+
+  // Одразу міняємо UI (оптимістично)
+  el.textContent = next;
+  Object.values(STATUS_CLASS).forEach(c => el.classList.remove(c));
+  el.classList.add(STATUS_CLASS[next] || "p-review");
+  el.classList.add("saving");
+
+  // Оновлюємо локальні дані
+  const record = findRecord(table, id);
+  if (record) record.status = next;
+
+  // Оновлюємо data-status для фільтра
+  const vidRow = document.querySelector(`.vid-row[data-vid="${id}"]`);
+  if (vidRow) { vidRow.dataset.status = next; applyFilter(); }
+
+  // Зберігаємо в Notion
+  const res = await api("PATCH", "/update", { pageId: id, table, field: "status", value: next });
+  el.classList.remove("saving");
+
+  if (res.ok) {
+    showToast("Збережено ✓");
+    buildStats(); // оновлюємо лічильники
+  } else {
+    showToast("Помилка збереження", true);
+    // Відкатуємо
+    el.textContent = cur;
+    Object.values(STATUS_CLASS).forEach(c => el.classList.remove(c));
+    el.classList.add(STATUS_CLASS[cur] || "p-review");
+    if (record) record.status = cur;
+  }
+}
+
+// ============================================================
+// INLINE РЕДАГУВАННЯ ТЕКСТУ
+// Клік → поле вводу → Enter або blur → зберегти в Notion
+// ============================================================
+function editText(el, id, table, field) {
+  if (el.querySelector("input")) return; // вже редагується
+
+  const original = el.dataset.value || el.textContent.trim()
+    .replace(" ⚠ не збігається", "").trim();
+
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "inline-edit";
+  input.value = original;
+  input.style.fontSize = window.getComputedStyle(el).fontSize;
+
+  el.innerHTML = "";
+  el.appendChild(input);
+  input.focus();
+  input.select();
+
+  async function save() {
+    const newVal = input.value.trim();
+    el.dataset.value = newVal;
+
+    if (newVal === original) {
+      // Нічого не змінилось — просто відновити
+      rebuildElement(el, id, table, field, original);
+      return;
+    }
+
+    el.textContent = newVal + " ...";
+
+    const res = await api("PATCH", "/update", { pageId: id, table, field, value: newVal });
+
+    // Оновлюємо локальні дані
+    const record = findRecord(table, id);
+    if (record) record[field] = newVal;
+
+    if (res.ok) {
+      showToast("Збережено ✓");
+      // Перебудовуємо тільки картку уроку або відео (не всю дошку)
+      refreshCard(id, table);
+    } else {
+      showToast("Помилка збереження", true);
+      rebuildElement(el, id, table, field, original);
+    }
+  }
+
+  input.addEventListener("blur", save);
+  input.addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); input.blur(); }
+    if (e.key === "Escape") { input.removeEventListener("blur", save); rebuildElement(el, id, table, field, original); }
+  });
+}
+
+// Редагування примітки
+function editNote(id, table) {
+  const record = findRecord(table, id);
+  openModal(
+    "Примітка",
+    [{ id: "note", label: "Текст примітки", type: "textarea", value: record?.note || "" }],
+    async (values) => {
+      const res = await api("PATCH", "/update", { pageId: id, table, field: "note", value: values.note });
+      if (res.ok) {
+        if (record) record.note = values.note;
+        showToast("Збережено ✓");
+        refreshCard(id, table);
+      } else {
+        showToast("Помилка збереження", true);
+      }
+    }
+  );
+}
+
+// Редагування YT URL
+function editYtUrl(videoId) {
+  const video = DATA.videos.find(v => v.id === videoId);
+  openModal(
+    "YouTube посилання",
+    [{ id: "ytUrl", label: "URL відео на YouTube", type: "text", value: video?.ytUrl || "", placeholder: "https://youtu.be/..." }],
+    async (values) => {
+      const res = await api("PATCH", "/update", { pageId: videoId, table: "videos", field: "ytUrl", value: values.ytUrl });
+      if (res.ok) {
+        if (video) video.ytUrl = values.ytUrl;
+        showToast("Збережено ✓");
+        refreshCard(videoId, "videos");
+      } else {
+        showToast("Помилка збереження", true);
+      }
+    }
+  );
+}
+
+// ============================================================
+// ДОДАВАННЯ НОВИХ ЗАПИСІВ
+// ============================================================
+function openAddLesson(moduleId) {
+  openModal(
+    "Новий урок",
+    [
+      { id: "name", label: "Назва уроку", type: "text", placeholder: "Урок X.X Назва..." },
+      { id: "status", label: "Статус", type: "select", options: ["Перевірка", "OK", "Змінити", "Нове"], value: "Нове" },
+    ],
+    async (values) => {
+      const res = await api("POST", "/create", {
+        table: "lessons",
+        data: { name: values.name, status: values.status, moduleId },
+      });
+      if (res.ok) {
+        showToast("Урок додано ✓");
+        await loadData(); // перезавантажуємо дані
+      } else {
+        showToast("Помилка", true);
+      }
+    }
+  );
+}
+
+function openAddVideo(lessonId) {
+  openModal(
+    "Нове відео",
+    [
+      { id: "name", label: "Внутрішня назва відео", type: "text", placeholder: "1. Назва відео..." },
+      { id: "ytTitle", label: "Назва на YouTube (заставка)", type: "text", placeholder: "Назва як на YouTube..." },
+      { id: "status", label: "Статус", type: "select", options: ["Перевірка", "OK", "Змінити", "Нове"], value: "Нове" },
+    ],
+    async (values) => {
+      const res = await api("POST", "/create", {
+        table: "videos",
+        data: { name: values.name, ytTitle: values.ytTitle, status: values.status, lessonId },
+      });
+      if (res.ok) {
+        showToast("Відео додано ✓");
+        await loadData();
+      } else {
+        showToast("Помилка", true);
+      }
+    }
+  );
+}
+
+function openAddMaterial(lessonId) {
+  // Знаходимо відео уроку для прив'язки
+  const lessonVideos = DATA.videos.filter(v => v.lessonId === lessonId);
+  const videoOptions = lessonVideos.map(v => ({ value: v.id, label: v.name }));
+
+  openModal(
+    "Новий матеріал",
+    [
+      { id: "name", label: "Назва матеріалу", type: "text", placeholder: "Назва файлу або посилання..." },
+      { id: "type", label: "Тип", type: "select", options: ["PDF", "Шаблон", "Презентація", "Посилання", "Відео", "Інше"], value: "PDF" },
+      { id: "status", label: "Статус", type: "select", options: ["Перевірка", "OK", "Змінити", "Нове"], value: "Нове" },
+    ],
+    async (values) => {
+      const videoId = lessonVideos[0]?.id || null; // прив'язуємо до першого відео уроку
+      const res = await api("POST", "/create", {
+        table: "materials",
+        data: { name: values.name, type: values.type, status: values.status, videoId },
+      });
+      if (res.ok) {
+        showToast("Матеріал додано ✓");
+        await loadData();
+      } else {
+        showToast("Помилка", true);
+      }
+    }
+  );
+}
+
+// ============================================================
+// ФІЛЬТР ВІДЕО
+// ============================================================
+function setFilter(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll(".fbtn").forEach(b => b.classList.remove("on"));
+  btn.classList.add("on");
+  applyFilter();
+}
+
+function applyFilter() {
+  document.querySelectorAll(".vid-row[data-vid]").forEach(row => {
+    const show = currentFilter === "all" || row.dataset.status === currentFilter;
+    row.classList.toggle("hidden-item", !show);
+  });
+}
+
+// ============================================================
+// МОДАЛЬНЕ ВІКНО
+// ============================================================
+function openModal(title, fields, callback) {
+  document.getElementById("modal-title").textContent = title;
+  modalCallback = callback;
+
+  const container = document.getElementById("modal-fields");
+  container.innerHTML = fields.map(f => {
+    if (f.type === "select") {
+      return `<div class="modal-field">
+        <label class="modal-label">${f.label}</label>
+        <select class="modal-select" id="mf_${f.id}">
+          ${f.options.map(o => {
+            const val = typeof o === "object" ? o.value : o;
+            const lbl = typeof o === "object" ? o.label : o;
+            return `<option value="${escHtml(val)}" ${val === f.value ? "selected" : ""}>${escHtml(lbl)}</option>`;
+          }).join("")}
+        </select>
+      </div>`;
+    }
+    if (f.type === "textarea") {
+      return `<div class="modal-field">
+        <label class="modal-label">${f.label}</label>
+        <textarea class="modal-input" id="mf_${f.id}" rows="3" style="resize:vertical">${escHtml(f.value || "")}</textarea>
+      </div>`;
+    }
+    return `<div class="modal-field">
+      <label class="modal-label">${f.label}</label>
+      <input type="text" class="modal-input" id="mf_${f.id}"
+             value="${escHtml(f.value || "")}"
+             placeholder="${escHtml(f.placeholder || "")}" />
+    </div>`;
+  }).join("");
+
+  document.getElementById("modal").classList.add("open");
+
+  // Фокус на першому полі
+  setTimeout(() => {
+    const first = container.querySelector("input, textarea");
+    if (first) first.focus();
+  }, 100);
+}
+
+function closeModal() {
+  document.getElementById("modal").classList.remove("open");
+  modalCallback = null;
+}
+
+async function saveModal() {
+  if (!modalCallback) return;
+
+  const saveBtn = document.getElementById("modal-save");
+  saveBtn.disabled = true;
+  saveBtn.textContent = "Збереження...";
+
+  // Збираємо значення всіх полів
+  const values = {};
+  document.querySelectorAll("[id^='mf_']").forEach(el => {
+    const key = el.id.replace("mf_", "");
+    values[key] = el.value;
+  });
+
+  await modalCallback(values);
+
+  saveBtn.disabled = false;
+  saveBtn.textContent = "Зберегти";
+  closeModal();
+}
+
+// Закрити модалку кліком на overlay
+document.getElementById("modal").addEventListener("click", e => {
+  if (e.target === document.getElementById("modal")) closeModal();
+});
+
+// ============================================================
+// ТОСТ ПОВІДОМЛЕННЯ
+// ============================================================
+let toastTimer;
+function showToast(msg, isError = false) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.toggle("error", isError);
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), 2500);
+}
+
+// ============================================================
+// ДОПОМІЖНІ ФУНКЦІЇ
+// ============================================================
+
+// Знайти запис у локальних даних
+function findRecord(table, id) {
+  const map = { modules: "modules", lessons: "lessons", videos: "videos", materials: "materials" };
+  return DATA[map[table]]?.find(r => r.id === id);
+}
+
+// Перебудувати картку після редагування
+function refreshCard(id, table) {
+  if (table === "lessons" || table === "videos" || table === "materials") {
+    // Знаходимо урок
+    let lessonId = id;
+    if (table === "videos") {
+      const v = DATA.videos.find(v => v.id === id);
+      lessonId = v?.lessonId;
+    }
+    if (table === "materials") {
+      const m = DATA.materials.find(m => m.id === id);
+      const v = DATA.videos.find(v => v.id === m?.videoId);
+      lessonId = v?.lessonId;
+    }
+    if (!lessonId) return;
+
+    const lesson = DATA.lessons.find(l => l.id === lessonId);
+    if (!lesson) return;
+
+    const card = document.getElementById("lc_" + lessonId);
+    if (!card) return;
+
+    const wasOpen = document.getElementById("lb_" + lessonId)?.classList.contains("open");
+    card.outerHTML = buildLessonHTML(lesson);
+    if (wasOpen) {
+      const body = document.getElementById("lb_" + lessonId);
+      const tog  = document.getElementById("tog_" + lessonId);
+      if (body) body.classList.add("open");
+      if (tog)  tog.textContent = "▼";
+    }
+    applyFilter();
+  }
+  if (table === "modules") {
+    buildBoard();
+    buildStats();
+  }
+}
+
+// Відновити елемент після скасування редагування
+function rebuildElement(el, id, table, field, original) {
+  el.textContent = original;
+}
+
+// Безпечний HTML (захист від XSS)
+function escHtml(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+</script>
+</body>
+</html>
