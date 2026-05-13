@@ -376,11 +376,11 @@ body {
 /* YouTube блок */
 .yt-block {
   display: flex; align-items: flex-start; gap: 4px;
-  background: var(--rev-bg);
-  border: 1px solid var(--rev-border);
+  background: #fff;
+  border: 1px solid var(--border);
   border-radius: 4px; padding: 3px 6px;
   font-size: 10px; line-height: 1.35;
-  color: var(--rev);
+  color: var(--muted);
 }
 /* Якщо назви не збігаються — жовтий */
 .yt-block.mismatch {
@@ -1160,6 +1160,30 @@ function openAddVideo(lessonId) {
       if (res.ok) {
         showToast("Відео додано ✓");
         await loadData();
+      
+        setTimeout(() => {
+          const lessonBody = document.getElementById("lb_" + lessonId);
+          const lessonToggle = document.getElementById("tog_" + lessonId);
+      
+          if (lessonBody && !lessonBody.classList.contains("open")) {
+            lessonBody.classList.add("open");
+          }
+      
+          if (lessonToggle) {
+            lessonToggle.textContent = "▼";
+          }
+      
+          const videoBody = document.getElementById(`sb_${lessonId}_videos`);
+          const videoToggle = document.getElementById(`st_${lessonId}_videos`);
+      
+          if (videoBody && !videoBody.classList.contains("open")) {
+            videoBody.classList.add("open");
+          }
+      
+          if (videoToggle) {
+            videoToggle.textContent = "▼";
+          }
+        }, 50);
       } else {
         showToast("Помилка", true);
       }
@@ -1184,6 +1208,30 @@ function openAddMaterial(lessonId) {
       if (res.ok) {
         showToast("Матеріал додано ✓");
         await loadData();
+      
+        setTimeout(() => {
+          const lessonBody = document.getElementById("lb_" + lessonId);
+          const lessonToggle = document.getElementById("tog_" + lessonId);
+      
+          if (lessonBody && !lessonBody.classList.contains("open")) {
+            lessonBody.classList.add("open");
+          }
+      
+          if (lessonToggle) {
+            lessonToggle.textContent = "▼";
+          }
+      
+          const materialBody = document.getElementById(`sb_${lessonId}_materials`);
+          const materialToggle = document.getElementById(`st_${lessonId}_materials`);
+      
+          if (materialBody && !materialBody.classList.contains("open")) {
+            materialBody.classList.add("open");
+          }
+      
+          if (materialToggle) {
+            materialToggle.textContent = "▼";
+          }
+        }, 50);
       } else {
         showToast("Помилка", true);
       }
