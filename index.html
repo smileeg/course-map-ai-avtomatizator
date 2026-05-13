@@ -312,6 +312,32 @@ body {
   color: var(--muted); margin-top: 4px; margin-bottom: 2px;
 }
 
+.section-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px;
+  padding: 5px 6px;
+  margin-top: 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  user-select: none;
+  transition: background .12s;
+}
+.section-head:hover { background: var(--gray); }
+.section-title {
+  font-size: 9px; font-family: 'DM Mono', monospace;
+  text-transform: uppercase; letter-spacing: .6px;
+  color: var(--muted);
+}
+.section-toggle { font-size: 9px; color: var(--muted); }
+.section-body {
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+}
+.section-body.open { display: flex; }
+
 /* ============================================================
    РЯДОК ВІДЕО
    ============================================================ */
@@ -404,6 +430,11 @@ body {
 .mat-row {
   display: flex; align-items: center; gap: 6px;
   padding: 3px 4px;
+}
+.mat-num {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px; color: var(--muted);
+  min-width: 18px;
 }
 .mat-ico { font-size: 11px; }
 .mat-name { font-size: 11px; flex: 1; color: var(--muted); cursor: pointer; }
@@ -751,6 +782,7 @@ function buildModule(mod, colorIdx) {
       <div class="mod-desc" title="Клікни для редагування"
            onclick="editText(this, '${mod.id}', 'modules', 'desc')">${escHtml(mod.desc || "Додати опис...")}</div>
       <div class="mod-meta">
+        ${buildStatusSelectHTML(mod.id, "modules", mod.status, true)}
         <span class="mod-badge" style="background:rgba(255,255,255,.5);color:${c.color}">${totalVids} відео</span>
         ${issues ? `<span class="mod-badge" style="background:var(--chg-bg);color:var(--chg)">${issues} ⚠</span>` : ""}
         ${mismatches ? `<span class="mod-badge" style="background:var(--rev-bg);color:var(--rev)">${mismatches} YT≠</span>` : ""}
@@ -768,11 +800,13 @@ function buildModule(mod, colorIdx) {
 function buildLessonHTML(les) {
   const videos = DATA.videos
     .filter(v => v.lessonId === les.id)
-    .sort((a, b) => (a.number || 0) - (b.number || 0));
-  const mats = DATA.materials.filter(m => {
-    // Матеріали прив'язані до відео уроку
-    return videos.some(v => v.id === m.videoId);
-  });
+    .sort((a, b) => ((a.number ?? a.order) || 0) - ((b.number ?? b.order) || 0));
+  const mats = DATA.materials
+    .filter(m => {
+      // Матеріали прив'язані до відео уроку
+      return videos.some(v => v.id === m.videoId);
+    })
+    .sort((a, b) => ((a.order ?? a.number) || 0) - ((b.order ?? b.number) || 0));
 
   const issues = videos.filter(v => v.status !== "OK").length;
   const mismatches = videos.filter(v => v.name !== v.ytTitle && v.ytTitle).length;
@@ -798,15 +832,23 @@ function buildLessonHTML(les) {
       </div>
     </div>
     <div class="les-body" id="lb_${les.id}">
-      <div class="sec-label">Відео (${videos.length})</div>
-      ${videos.map(v => buildVideoHTML(v)).join("")}
-      <button class="add-btn" onclick="openAddVideo('${les.id}')">+ відео</button>
+      <div class="section-head" onclick="toggleSection('${les.id}', 'videos')">
+        <span class="section-title">Відео (${videos.length})</span>
+        <span class="section-toggle" id="st_${les.id}_videos">▶</span>
+      </div>
+      <div class="section-body" id="sb_${les.id}_videos">
+        ${videos.map(v => buildVideoHTML(v)).join("")}
+        <button class="add-btn" onclick="openAddVideo('${les.id}')">+ відео</button>
+      </div>
 
-      ${mats.length ? `
-        <div class="sec-label" style="margin-top:6px">Матеріали (${mats.length})</div>
+      <div class="section-head" onclick="toggleSection('${les.id}', 'materials')">
+        <span class="section-title">Матеріали (${mats.length})</span>
+        <span class="section-toggle" id="st_${les.id}_materials">▶</span>
+      </div>
+      <div class="section-body" id="sb_${les.id}_materials">
         ${mats.map(m => buildMaterialHTML(m)).join("")}
-      ` : `<div class="sec-label" style="margin-top:6px">Матеріали (0)</div>`}
-      <button class="add-btn" onclick="openAddMaterial('${les.id}')">+ матеріал</button>
+        <button class="add-btn" onclick="openAddMaterial('${les.id}')">+ матеріал</button>
+      </div>
 
       ${!les.note ? `<button class="add-btn" style="margin-top:4px" onclick="editNote('${les.id}', 'lessons')">+ примітка до уроку</button>` : ""}
     </div>
@@ -831,12 +873,7 @@ function buildVideoHTML(v) {
             onclick="editText(this, '${v.id}', 'videos', 'ytTitle')"
             title="Клікни для редагування YouTube назви">${escHtml(v.ytTitle || "— не вказано")}${mismatch ? ' <span class="warn">⚠ не збігається</span>' : ""}</span>
     </div>
-    ${v.ytUrl ? `
-      <div class="yt-url-row">
-        <a class="yt-url-link" href="${escHtml(v.ytUrl)}" target="_blank" rel="noopener">▶ Відкрити на YouTube</a>
-        <span class="yt-url-edit" onclick="editText(this.closest('.vid-row').querySelector('.yt-url-link'), '${v.id}', 'videos', 'ytUrl')">✏️</span>
-      </div>` : `
-      <button class="add-btn" style="font-size:9px;padding:2px" onclick="editYtUrl('${v.id}')">+ YouTube посилання</button>`}
+
     ${v.note ? `<span class="note-tag" onclick="editNote('${v.id}', 'videos')">📝 ${escHtml(v.note)}</span>` : `<button class="add-btn" style="font-size:9px;padding:2px" onclick="editNote('${v.id}', 'videos')">+ примітка</button>`}
   </div>`;
 }
@@ -857,13 +894,12 @@ function buildMaterialHTML(m) {
   const sc = STATUS_CLASS[m.status] || "p-review";
 
   return `<div class="mat-row">
+    <span class="mat-num">${m.order ?? m.number ?? ""}</span>
     <span class="mat-ico">${icon}</span>
     <span class="mat-name"
           onclick="editText(this, '${m.id}', 'materials', 'name')"
           title="Клікни для редагування">${escHtml(m.name)}</span>
-    <span class="pill ${sc}"
-          data-id="${m.id}" data-table="materials"
-          onclick="cycleStatus(this)">${m.status || "Перевірка"}</span>
+    ${buildStatusSelectHTML(m.id, "materials", m.status)}
   </div>`;
 }
 
@@ -873,11 +909,14 @@ function buildMaterialHTML(m) {
 function buildStats() {
   const allVids = DATA.videos;
   const counts = { "OK": 0, "Змінити": 0, "Нове": 0, "Перевірка": 0 };
+  const moduleCounts = { "OK": 0, "Змінити": 0, "Нове": 0, "Перевірка": 0 };
   allVids.forEach(v => { if (counts[v.status] !== undefined) counts[v.status]++; });
+  DATA.modules.forEach(m => { const st = m.status || "Перевірка"; if (moduleCounts[st] !== undefined) moduleCounts[st]++; });
   const mismatches = allVids.filter(v => v.ytTitle && v.name !== v.ytTitle).length;
 
   document.getElementById("statsbar").innerHTML = `
     <div class="stat"><span class="stat-n">${DATA.modules.length}</span><span class="stat-l">Модулі</span></div>
+    <div class="stat"><span class="stat-n" style="color:var(--rev)">${moduleCounts["Перевірка"]}</span><span class="stat-l">Модулі: перевірка</span></div>
     <div class="stat"><span class="stat-n">${DATA.lessons.length}</span><span class="stat-l">Уроки</span></div>
     <div class="stat"><span class="stat-n">${allVids.length}</span><span class="stat-l">Відео</span></div>
     <div class="stat"><span class="stat-n" style="color:var(--ok)">${counts["OK"]}</span><span class="stat-l">OK</span></div>
@@ -895,6 +934,14 @@ function buildStats() {
 function toggleLesson(id) {
   const body = document.getElementById("lb_" + id);
   const tog  = document.getElementById("tog_" + id);
+  const open = body.classList.toggle("open");
+  tog.textContent = open ? "▼" : "▶";
+}
+
+function toggleSection(lessonId, section) {
+  const body = document.getElementById(`sb_${lessonId}_${section}`);
+  const tog  = document.getElementById(`st_${lessonId}_${section}`);
+  if (!body || !tog) return;
   const open = body.classList.toggle("open");
   tog.textContent = open ? "▼" : "▶";
 }
@@ -1074,12 +1121,13 @@ function openAddLesson(moduleId) {
     "Новий урок",
     [
       { id: "name", label: "Назва уроку", type: "text", placeholder: "Урок X.X Назва..." },
+      { id: "order", label: "Порядок / №", type: "number", value: nextOrder(DATA.lessons.filter(l => l.moduleId === moduleId), "order") },
       { id: "status", label: "Статус", type: "select", options: ["Перевірка", "OK", "Змінити", "Нове"], value: "Нове" },
     ],
     async (values) => {
       const res = await api("POST", "/create", {
         table: "lessons",
-        data: { name: values.name, status: values.status, moduleId },
+        data: { name: values.name, order: toNumber(values.order), status: values.status, moduleId },
       });
       if (res.ok) {
         showToast("Урок додано ✓");
@@ -1096,13 +1144,14 @@ function openAddVideo(lessonId) {
     "Нове відео",
     [
       { id: "name", label: "Внутрішня назва відео", type: "text", placeholder: "1. Назва відео..." },
+      { id: "number", label: "Порядок / №", type: "number", value: nextOrder(DATA.videos.filter(v => v.lessonId === lessonId), "number") },
       { id: "ytTitle", label: "Назва на YouTube (заставка)", type: "text", placeholder: "Назва як на YouTube..." },
       { id: "status", label: "Статус", type: "select", options: ["Перевірка", "OK", "Змінити", "Нове"], value: "Нове" },
     ],
     async (values) => {
       const res = await api("POST", "/create", {
         table: "videos",
-        data: { name: values.name, ytTitle: values.ytTitle, status: values.status, lessonId },
+        data: { name: values.name, number: toNumber(values.number), ytTitle: values.ytTitle, status: values.status, lessonId },
       });
       if (res.ok) {
         showToast("Відео додано ✓");
@@ -1123,6 +1172,7 @@ function openAddMaterial(lessonId) {
     "Новий матеріал",
     [
       { id: "name", label: "Назва матеріалу", type: "text", placeholder: "Назва файлу або посилання..." },
+      { id: "order", label: "Порядок / №", type: "number", value: nextOrder(DATA.materials.filter(m => lessonVideos.some(v => v.id === m.videoId)), "order") },
       { id: "type", label: "Тип", type: "select", options: ["PDF", "Шаблон", "Презентація", "Посилання", "Відео", "Інше"], value: "PDF" },
       { id: "status", label: "Статус", type: "select", options: ["Перевірка", "OK", "Змінити", "Нове"], value: "Нове" },
     ],
@@ -1130,7 +1180,7 @@ function openAddMaterial(lessonId) {
       const videoId = lessonVideos[0]?.id || null; // прив'язуємо до першого відео уроку
       const res = await api("POST", "/create", {
         table: "materials",
-        data: { name: values.name, type: values.type, status: values.status, videoId },
+        data: { name: values.name, order: toNumber(values.order), type: values.type, status: values.status, videoId },
       });
       if (res.ok) {
         showToast("Матеріал додано ✓");
@@ -1186,9 +1236,10 @@ function openModal(title, fields, callback) {
         <textarea class="modal-input" id="mf_${f.id}" rows="3" style="resize:vertical">${escHtml(f.value || "")}</textarea>
       </div>`;
     }
+    const inputType = f.type === "number" ? "number" : "text";
     return `<div class="modal-field">
       <label class="modal-label">${f.label}</label>
-      <input type="text" class="modal-input" id="mf_${f.id}"
+      <input type="${inputType}" class="modal-input" id="mf_${f.id}"
              value="${escHtml(f.value || "")}"
              placeholder="${escHtml(f.placeholder || "")}" />
     </div>`;
@@ -1280,6 +1331,8 @@ function refreshCard(id, table) {
     if (!card) return;
 
     const wasOpen = document.getElementById("lb_" + lessonId)?.classList.contains("open");
+    const videosOpen = document.getElementById(`sb_${lessonId}_videos`)?.classList.contains("open");
+    const materialsOpen = document.getElementById(`sb_${lessonId}_materials`)?.classList.contains("open");
     card.outerHTML = buildLessonHTML(lesson);
     if (wasOpen) {
       const body = document.getElementById("lb_" + lessonId);
@@ -1287,6 +1340,8 @@ function refreshCard(id, table) {
       if (body) body.classList.add("open");
       if (tog)  tog.textContent = "▼";
     }
+    if (videosOpen) toggleSection(lessonId, "videos");
+    if (materialsOpen) toggleSection(lessonId, "materials");
     applyFilter();
   }
   if (table === "modules") {
@@ -1298,6 +1353,18 @@ function refreshCard(id, table) {
 // Відновити елемент після скасування редагування
 function rebuildElement(el, id, table, field, original) {
   el.textContent = original;
+}
+
+function nextOrder(items, field = "order") {
+  const nums = items
+    .map(item => Number(item[field] ?? item.order ?? item.number))
+    .filter(Number.isFinite);
+  return nums.length ? Math.max(...nums) + 1 : 1;
+}
+
+function toNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
 }
 
 // Безпечний HTML (захист від XSS)
