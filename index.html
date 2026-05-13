@@ -710,21 +710,25 @@ document.getElementById("login-pwd").addEventListener("keydown", e => {
 // ============================================================
 // ЗАВАНТАЖЕННЯ ДАНИХ
 // ============================================================
-async function loadData() {
+async function loadData(preserveState = true) {
+  const openState = preserveState ? getOpenState() : null;
+
   showLoading(true);
 
   const btn = document.getElementById("refresh-btn");
-  btn.classList.add("spinning");
+  if (btn) btn.classList.add("spinning");
 
   const res = await api("GET", "/data");
   DATA = normalizeData(res);
 
   document.getElementById("app").style.display = "block";
   showLoading(false);
-  btn.classList.remove("spinning");
+  if (btn) btn.classList.remove("spinning");
 
   buildBoard();
   buildStats();
+
+  restoreOpenState(openState);
 }
 
 function showLoading(show) {
@@ -1134,7 +1138,14 @@ function openAddLesson(moduleId) {
       });
       if (res.ok) {
         showToast("Урок додано ✓");
-        await loadData(); // перезавантажуємо дані
+        await loadData();
+      
+        setTimeout(() => {
+          const moduleBody = document.getElementById("mbd_" + moduleId);
+          if (moduleBody) {
+            moduleBody.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+          }
+        }, 50);
       } else {
         showToast("Помилка", true);
       }
@@ -1483,6 +1494,41 @@ function toNumber(value) {
   return Number.isFinite(n) ? n : null;
 }
 
+function getOpenState() {
+  return {
+    lessons: [...document.querySelectorAll(".les-body.open")]
+      .map(el => el.id.replace("lb_", "")),
+
+    sections: [...document.querySelectorAll(".section-body.open")]
+      .map(el => el.id.replace("sb_", "")),
+
+    scrollLeft: document.querySelector(".board-wrap")?.scrollLeft || 0,
+  };
+}
+
+function restoreOpenState(state) {
+  if (!state) return;
+
+  state.lessons.forEach(id => {
+    const body = document.getElementById("lb_" + id);
+    const tog = document.getElementById("tog_" + id);
+
+    if (body) body.classList.add("open");
+    if (tog) tog.textContent = "▼";
+  });
+
+  state.sections.forEach(key => {
+    const body = document.getElementById("sb_" + key);
+    const tog = document.getElementById("st_" + key);
+
+    if (body) body.classList.add("open");
+    if (tog) tog.textContent = "▼";
+  });
+
+  const wrap = document.querySelector(".board-wrap");
+  if (wrap) wrap.scrollLeft = state.scrollLeft || 0;
+}
+   
 // Безпечний HTML (захист від XSS)
 function escHtml(str) {
   if (!str) return "";
