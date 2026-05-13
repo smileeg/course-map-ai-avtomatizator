@@ -373,6 +373,81 @@ body {
 }
 .vid-title:hover { background: var(--border); }
 
+.item-toggle {
+  font-size: 9px;
+  color: var(--muted);
+  padding-top: 2px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.item-details {
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.item-details.open {
+  display: flex;
+}
+
+.mat-card {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  transition: background .12s;
+}
+
+.mat-card:hover {
+  background: var(--gray);
+}
+
+.mat-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.meta-block {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+.meta-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  font-weight: 500;
+  flex-shrink: 0;
+  padding-top: 1px;
+  opacity: .7;
+}
+
+.meta-text {
+  flex: 1;
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 1px 2px;
+  margin-left: -2px;
+  transition: background .12s;
+}
+
+.meta-text:hover {
+  background: rgba(0,0,0,.06);
+}
+   
 /* YouTube блок */
 .yt-block {
   display: flex; align-items: flex-start; gap: 4px;
@@ -860,28 +935,41 @@ function buildLessonHTML(les) {
 function buildVideoHTML(v) {
   const ytName = v.ytName || "";
   const mismatch = ytName && v.name !== ytName;
+  const itemId = `video_${v.id}`;
 
   return `<div class="vid-row" data-vid="${v.id}" data-status="${v.status || ""}">
     <div class="vid-top">
+      <span class="mat-num">${v.order ?? v.number ?? ""}</span>
+
       <span class="vid-title"
             onclick="editText(this, '${v.id}', 'videos', 'name')"
             title="Клікни для редагування">${escHtml(v.name)}</span>
+
       ${buildStatusSelectHTML(v.id, "videos", v.status)}
-    </div>
-    <div class="yt-block">
-      <span class="yt-label">YT Заставка:</span>
-      <span class="yt-text"
-            onclick="editText(this, '${v.id}', 'videos', 'ytTitle')"
-            title="Клікни для редагування назви на заставці YouTube">${escHtml(v.ytTitle || "— не вказано")}</span>
-    </div>
-    <div class="yt-block${mismatch ? " mismatch" : ""}">
-      <span class="yt-label">YT Назва:</span>
-      <span class="yt-text"
-            onclick="editText(this, '${v.id}', 'videos', 'ytName')"
-            title="Клікни для редагування назви відео на YouTube">${escHtml(ytName || "— не вказано")}${mismatch ? ' <span class="warn">⚠ не збігається</span>' : ""}</span>
+
+      <span class="item-toggle" id="it_${itemId}"
+            onclick="event.stopPropagation(); toggleItemDetails('${itemId}')">▶</span>
     </div>
 
-    ${v.note ? `<span class="note-tag" onclick="editNote('${v.id}', 'videos')">📝 ${escHtml(v.note)}</span>` : `<button class="add-btn" style="font-size:9px;padding:2px" onclick="editNote('${v.id}', 'videos')">+ примітка</button>`}
+    <div class="item-details" id="id_${itemId}">
+      <div class="meta-block">
+        <span class="meta-label">YT Заставка:</span>
+        <span class="meta-text"
+              onclick="editText(this, '${v.id}', 'videos', 'ytTitle')"
+              title="Клікни для редагування назви на заставці YouTube">${escHtml(v.ytTitle || "— не вказано")}</span>
+      </div>
+
+      <div class="meta-block${mismatch ? " mismatch yt-block" : ""}">
+        <span class="meta-label">YT Назва:</span>
+        <span class="meta-text"
+              onclick="editText(this, '${v.id}', 'videos', 'ytName')"
+              title="Клікни для редагування назви відео на YouTube">${escHtml(ytName || "— не вказано")}${mismatch ? ' <span class="warn">⚠ не збігається</span>' : ""}</span>
+      </div>
+
+      ${v.note
+        ? `<span class="note-tag" onclick="editNote('${v.id}', 'videos')">📝 ${escHtml(v.note)}</span>`
+        : `<button class="add-btn" style="font-size:9px;padding:2px" onclick="editNote('${v.id}', 'videos')">+ примітка</button>`}
+    </div>
   </div>`;
 }
 
@@ -896,17 +984,44 @@ function buildStatusSelectHTML(id, table, status, stopPropagation = false) {
 
 // HTML рядка матеріалу
 function buildMaterialHTML(m) {
-  const typeIcons = { "PDF":"📄", "Відео":"🎬", "Посилання":"🔗", "Шаблон":"📋", "Презентація":"📊" };
-  const icon = typeIcons[m.type] || "📎";
-  const sc = STATUS_CLASS[m.status] || "p-review";
+  const typeIcons = {
+    "PDF": "📄",
+    "Відео": "🎬",
+    "Посилання": "🔗",
+    "Шаблон": "📋",
+    "Презентація": "📊"
+  };
 
-  return `<div class="mat-row">
-    <span class="mat-num">${m.order ?? m.number ?? ""}</span>
-    <span class="mat-ico">${icon}</span>
-    <span class="mat-name"
-          onclick="editText(this, '${m.id}', 'materials', 'name')"
-          title="Клікни для редагування">${escHtml(m.name)}</span>
-    ${buildStatusSelectHTML(m.id, "materials", m.status)}
+  const icon = typeIcons[m.type] || "📎";
+  const itemId = `material_${m.id}`;
+
+  return `<div class="mat-card" data-mat="${m.id}" data-status="${m.status || ""}">
+    <div class="mat-top">
+      <span class="mat-num">${m.order ?? m.number ?? ""}</span>
+      <span class="mat-ico">${icon}</span>
+
+      <span class="mat-name"
+            onclick="editText(this, '${m.id}', 'materials', 'name')"
+            title="Клікни для редагування">${escHtml(m.name)}</span>
+
+      ${buildStatusSelectHTML(m.id, "materials", m.status)}
+
+      <span class="item-toggle" id="it_${itemId}"
+            onclick="event.stopPropagation(); toggleItemDetails('${itemId}')">▶</span>
+    </div>
+
+    <div class="item-details" id="id_${itemId}">
+      <div class="meta-block">
+        <span class="meta-label">Тип:</span>
+        <span class="meta-text"
+              onclick="editText(this, '${m.id}', 'materials', 'type')"
+              title="Клікни для редагування типу">${escHtml(m.type || "— не вказано")}</span>
+      </div>
+
+      ${m.note
+        ? `<span class="note-tag" onclick="editNote('${m.id}', 'materials')">📝 ${escHtml(m.note)}</span>`
+        : `<button class="add-btn" style="font-size:9px;padding:2px" onclick="editNote('${m.id}', 'materials')">+ примітка</button>`}
+    </div>
   </div>`;
 }
 
@@ -953,6 +1068,16 @@ function toggleSection(lessonId, section) {
   tog.textContent = open ? "▼" : "▶";
 }
 
+function toggleItemDetails(itemId) {
+  const body = document.getElementById("id_" + itemId);
+  const tog = document.getElementById("it_" + itemId);
+
+  if (!body || !tog) return;
+
+  const open = body.classList.toggle("open");
+  tog.textContent = open ? "▼" : "▶";
+}
+   
 // ============================================================
 // ЦИКЛ СТАТУСУ — клік на пілюлю
 // Зберігає в Notion через Worker
@@ -1458,9 +1583,13 @@ function refreshCard(id, table) {
     if (!card) return;
 
     const wasOpen = document.getElementById("lb_" + lessonId)?.classList.contains("open");
-    const videosOpen = document.getElementById(`sb_${lessonId}_videos`)?.classList.contains("open");
-    const materialsOpen = document.getElementById(`sb_${lessonId}_materials`)?.classList.contains("open");
-    card.outerHTML = buildLessonHTML(lesson);
+   const videosOpen = document.getElementById(`sb_${lessonId}_videos`)?.classList.contains("open");
+   const materialsOpen = document.getElementById(`sb_${lessonId}_materials`)?.classList.contains("open");
+   
+   const openItems = [...document.querySelectorAll(".item-details.open")]
+     .map(el => el.id.replace("id_", ""));
+   
+   card.outerHTML = buildLessonHTML(lesson);
     if (wasOpen) {
       const body = document.getElementById("lb_" + lessonId);
       const tog  = document.getElementById("tog_" + lessonId);
@@ -1469,6 +1598,13 @@ function refreshCard(id, table) {
     }
     if (videosOpen) toggleSection(lessonId, "videos");
     if (materialsOpen) toggleSection(lessonId, "materials");
+     openItems.forEach(itemId => {
+        const body = document.getElementById("id_" + itemId);
+        const tog = document.getElementById("it_" + itemId);
+      
+        if (body) body.classList.add("open");
+        if (tog) tog.textContent = "▼";
+      });
     applyFilter();
   }
   if (table === "modules") {
